@@ -1,0 +1,30 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Members', 'members', ~{::section})}">
+<section>
+  <h1>Members (clients database)</h1>
+  <form class="inline card" method="get" th:action="@{/members}">
+    <div style="flex:1"><label>Search name, ID, member no or phone</label><input name="q" th:value="${q}" autofocus></div>
+    <div><label>Branch</label><select th:replace="~{fragments :: branchFilter(${branchId}, 'All branches')}"></select></div>
+    <button type="submit">Search</button>
+    <a class="btn orange" th:href="@{/members/new}">+ New member</a>
+  </form>
+  <p class="muted" th:text="${#lists.size(members)} + ' member(s)'"></p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Member no</th><th>Name</th><th>National ID</th><th>Phone</th><th>Ward</th><th>Branch</th><th>Joined</th><th>Joining fee</th><th>Subs paid to</th></tr></thead>
+    <tbody>
+    <tr th:each="m : ${members}">
+      <td><a th:href="@{/members/{id}(id=${m.id})}" th:text="${m.memberNo}"></a></td>
+      <td th:text="${m.fullName}"></td>
+      <td th:text="${m.nationalId}"></td>
+      <td th:text="${m.phone}"></td>
+      <td th:text="${m.ward}"></td>
+      <td th:text="${m.branch.name}"></td>
+      <td th:text="${#temporals.format(m.dateJoined, 'dd/MM/yyyy')}"></td>
+      <td th:text="${m.joiningFeePaid} ? 'Paid' : 'Not paid'" th:classappend="${!m.joiningFeePaid} ? 'red'"></td>
+      <td th:text="${m.subsPaidUntil != null ? #temporals.format(m.subsPaidUntil, 'MMM yyyy') : '-'}"
+          th:classappend="${m.subsMonthsOwed(today) > 0} ? 'red'"></td>
+    </tr>
+    <tr th:if="${#lists.isEmpty(members)}"><td colspan="9" class="muted">No members found.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+</html>

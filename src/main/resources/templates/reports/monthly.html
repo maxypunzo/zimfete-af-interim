@@ -1,0 +1,75 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Monthly I&E', 'monthly', ~{::section})}">
+<section>
+  <h1>Monthly income &amp; expenditure</h1>
+  <form class="inline card" method="get" th:action="@{/reports/monthly}">
+    <div><label>Month</label><input type="month" name="month" th:value="${month}"></div>
+    <div><label>Branch</label><select th:replace="~{fragments :: branchFilter(${branchId}, 'All branches (consolidated)')}"></select></div>
+    <button type="submit">Show</button>
+    <a class="btn alt" th:href="@{/reports/monthly.xlsx(month=${month}, branchId=${branchId})}">Download Excel</a>
+    <button type="button" class="alt" onclick="window.print()">Print</button>
+  </form>
+  <h2 th:text="${m.totals.title}"></h2>
+
+  <div class="grid g2">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Income</th><th class="r">$</th></tr></thead>
+      <tbody>
+      <tr th:each="t : ${types}" th:if="${t.income}"><td th:text="${t.label}"></td><td class="r" th:text="${#numbers.formatDecimal(m.totals.byType.get(t), 1, 'COMMA', 2, 'POINT')}"></td></tr>
+      <tr class="total"><td>Total income</td><td class="r" th:text="${#numbers.formatDecimal(m.totals.incomeTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+      <tr><th>Expenditure</th><th></th></tr>
+      <tr th:each="e : ${m.totals.expensesByCategory}"><td th:text="${e.key}"></td><td class="r" th:text="${#numbers.formatDecimal(e.value, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+      <tr class="total"><td>Total expenditure</td><td class="r" th:text="${#numbers.formatDecimal(m.totals.expensesTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+      <tr class="total"><td>SURPLUS / (DEFICIT)</td><td class="r" th:classappend="${m.surplus.signum() < 0} ? 'red'" th:text="${#numbers.formatDecimal(m.surplus, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+      </tbody>
+    </table></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Client funds &amp; activity</th><th class="r"></th></tr></thead>
+      <tbody>
+      <tr><td>Asset finance deposits received</td><td class="r" th:text="${#numbers.formatDecimal(m.totals.deposits, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+      <tr><td>Loan repayments received</td><td class="r" th:text="${#numbers.formatDecimal(m.totals.repayments, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+      <tr><td>Total cash received</td><td class="r" th:text="${#numbers.formatDecimal(m.totals.receiptsTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+      <tr><td>Net cash after expenditure</td><td class="r" th:text="${#numbers.formatDecimal(m.totals.net, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+      <tr><td>New members</td><td class="r" th:text="${m.totals.newMembers}"></td></tr>
+      <tr><td>Accounts opened</td><td class="r" th:text="${m.totals.accountsOpened}"></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <th:block th:if="${!#lists.isEmpty(m.branchRows)}">
+    <h2>By district</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>District</th><th class="r">New members</th><th class="r">Accounts opened</th><th class="r">Income</th><th class="r">Deposits</th><th class="r">Repayments</th><th class="r">Expenditure</th><th class="r">Net cash</th></tr></thead>
+      <tbody>
+      <tr th:each="b : ${m.branchRows}">
+        <td><a th:href="@{/reports/monthly(month=${month}, branchId=${b.branch.id})}" th:text="${b.branch.label}"></a></td>
+        <td class="r" th:text="${b.newMembers}"></td><td class="r" th:text="${b.accountsOpened}"></td>
+        <td class="r" th:text="${#numbers.formatDecimal(b.income, 1, 'COMMA', 2, 'POINT')}"></td>
+        <td class="r" th:text="${#numbers.formatDecimal(b.deposits, 1, 'COMMA', 2, 'POINT')}"></td>
+        <td class="r" th:text="${#numbers.formatDecimal(b.repayments, 1, 'COMMA', 2, 'POINT')}"></td>
+        <td class="r" th:text="${#numbers.formatDecimal(b.expenses, 1, 'COMMA', 2, 'POINT')}"></td>
+        <td class="r" th:text="${#numbers.formatDecimal(b.net, 1, 'COMMA', 2, 'POINT')}"></td>
+      </tr>
+      </tbody>
+    </table></div>
+  </th:block>
+
+  <h2>Daily income sheet</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th class="r" th:each="t : ${types}" th:text="${t.label}"></th><th class="r">Total received</th><th class="r">Spent</th><th class="r">Net</th></tr></thead>
+    <tbody>
+    <tr th:each="d : ${m.days}">
+      <td><a th:href="@{/reports/daily(from=${d.date}, branchId=${branchId}, all=${branchId == null})}" th:text="${#temporals.format(d.date, 'EEE dd/MM')}"></a></td>
+      <td class="r" th:each="t : ${types}" th:text="${d.byType.get(t).signum() == 0 ? '' : #numbers.formatDecimal(d.byType.get(t), 1, 'COMMA', 2, 'POINT')}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(d.receipts, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(d.expenses, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(d.net, 1, 'COMMA', 2, 'POINT')}"></td>
+    </tr>
+    <tr class="total"><td>Total</td>
+      <td class="r" th:each="t : ${types}" th:text="${#numbers.formatDecimal(m.totals.byType.get(t), 1, 'COMMA', 2, 'POINT')}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(m.totals.receiptsTotal, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(m.totals.expensesTotal, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(m.totals.net, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+    </tbody>
+  </table></div>
+</section>
+</html>

@@ -1,0 +1,41 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Receipt ' + ${r.receiptNo}, 'receipts', ~{::section})}">
+<section>
+  <div class="actions">
+    <button type="button" onclick="window.print()">Print receipt</button>
+    <a class="btn orange" th:href="@{/receipts/new}">Next receipt</a>
+    <a class="btn alt" th:if="${r.member != null}" th:href="@{/members/{id}(id=${r.member.id})}">Member</a>
+    <a class="btn alt" th:if="${r.account != null}" th:href="@{/accounts/{id}(id=${r.account.id})}">Account</a>
+  </div>
+  <div class="receipt-slip">
+    <div class="head">
+      <img th:src="@{/logo.png}" alt="" style="height:44px">
+      <div><strong>ZimFete Savings &amp; Credit Co-operative Society</strong></div>
+      <div th:text="${r.branch.label} + ' branch'"></div>
+      <div><strong>OFFICIAL RECEIPT</strong> <span th:text="${r.receiptNo}"></span></div>
+      <div th:if="${r.reversed}" class="red">REVERSED / CANCELLED</div>
+    </div>
+    <dl class="kv" style="grid-template-columns: 110px 1fr">
+      <dt>Date</dt><dd th:text="${#temporals.format(r.receiptDate, 'dd MMMM yyyy')}"></dd>
+      <dt>Received from</dt><dd th:text="${r.payerName}"></dd>
+      <dt th:if="${r.member}">Member no</dt><dd th:if="${r.member}" th:text="${r.member.memberNo} + ' · ID ' + ${r.member.nationalId}"></dd>
+      <dt>For</dt><dd th:text="${r.type.label} + (${r.months} != null ? ' — ' + ${r.months} + ' month(s)' : '')"></dd>
+      <dt th:if="${r.account}">Account</dt><dd th:if="${r.account}" th:text="${r.account.accountNo} + (${r.account.assetType} != null ? ' · ' + ${r.account.assetType.label} : '')"></dd>
+      <dt>Paid by</dt><dd th:text="${r.paymentMethod} + (${r.reference} != null ? ' · ' + ${r.reference} : '')"></dd>
+    </dl>
+    <div class="amt" th:text="'USD ' + ${#numbers.formatDecimal(r.amount, 1, 'COMMA', 2, 'POINT')}"></div>
+    <th:block th:if="${r.account != null}">
+      <p th:if="${!r.account.loanStarted}" class="muted" style="text-align:center"
+         th:text="'Total deposited $' + ${#numbers.formatDecimal(r.account.totalDeposited, 1, 'COMMA', 2, 'POINT')} + (${r.account.minimumDeposit} != null ? ' of $' + ${#numbers.formatDecimal(r.account.minimumDeposit, 1, 'COMMA', 2, 'POINT')} + ' minimum' : '')"></p>
+      <p th:if="${r.account.loanStarted}" class="muted" style="text-align:center"
+         th:text="'Loan balance $' + ${#numbers.formatDecimal(r.account.loanBalance, 1, 'COMMA', 2, 'POINT')}"></p>
+    </th:block>
+    <p>Received by: <span th:text="${r.capturedBy}"></span></p>
+    <p>Signature: ______________________</p>
+  </div>
+  <form th:if="${!r.reversed}" class="inline card" style="margin-top:20px" method="post" th:action="@{/receipts/{id}/reverse(id=${r.id})}"
+        onsubmit="return confirm('Reverse this receipt? It will stop counting in all reports.')">
+    <div style="flex:1"><label>Captured in error? Reason for reversal</label><input name="reason" required></div>
+    <button type="submit" class="danger">Reverse receipt</button>
+  </form>
+</section>
+</html>

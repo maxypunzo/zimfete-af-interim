@@ -1,0 +1,19 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Branches', 'branches', ~{::section})}">
+<section>
+  <h1>Branches &amp; clerks</h1>
+  <p class="sub">The branch code prefixes member numbers (MRW-M00001), account numbers (AF-MRW-0001) and receipt numbers (MRW-R000001).</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Code</th><th>Branch</th><th>District</th><th>Asset finance clerk</th></tr></thead>
+    <tbody>
+    <tr th:each="b : ${branches}">
+      <td th:text="${b.code}"></td>
+      <td th:text="${b.label}"></td>
+      <td th:text="${b.district}"></td>
+      <td><form class="inline" method="post" th:action="@{/branches/{id}(id=${b.id})}">
+        <div><input name="clerkName" th:value="${b.clerkName}" placeholder="Clerk's name"></div>
+        <button class="sm" type="submit">Save</button></form></td>
+    </tr>
+    </tbody>
+  </table></div>
+</section>
+</html>

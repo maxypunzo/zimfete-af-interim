@@ -1,0 +1,53 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('District returns', 'import', ~{::section})}">
+<section>
+  <h1>District returns</h1>
+  <p class="sub">The district clerks have no internet, but they do have WhatsApp. Instead of typing in their reports,
+    give each clerk the Excel return below once. They fill it on the phone or PC (works offline) and send the file on
+    WhatsApp. You upload it here: members, accounts, deposits, repayments, fees and expenditure all post in one go,
+    and every report updates.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <h2 style="margin-top:0">1. Give each clerk their template</h2>
+      <p class="muted">Includes a list of that branch's accounts so they quote the right account number. Download a fresh
+        copy now and then so the list stays current.</p>
+      <table>
+        <tr th:each="b : ${branches}"><td th:text="${b.label}"></td>
+          <td><a class="btn sm alt" th:href="@{/import/template(branchId=${b.id})}">Download template</a></td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">2. Upload a return received on WhatsApp</h2>
+      <form method="post" th:action="@{/import}" enctype="multipart/form-data" class="grid">
+        <div><label>Branch that sent it</label><select name="branchId" required><option value="">- choose -</option>
+          <option th:each="b : ${branches}" th:value="${b.id}" th:text="${b.label}" th:selected="${b.id == branchId}"></option></select></div>
+        <div><label>Excel file (.xlsx)</label><input type="file" name="file" accept=".xlsx,.xls" required></div>
+        <button type="submit" class="orange">Import</button>
+      </form>
+      <p class="muted">Safe to upload the same file twice: receipts already captured (same receipt number) are skipped.</p>
+    </div>
+  </div>
+
+  <th:block th:if="${result != null}">
+    <h2 th:text="'Result for ' + ${fileName}"></h2>
+    <div class="grid g4">
+      <div class="kpi good"><div class="n" th:text="${result.posted}"></div><div class="l">Posted</div></div>
+      <div class="kpi"><div class="n" th:text="${result.skipped}"></div><div class="l">Skipped (already captured)</div></div>
+      <div class="kpi warn"><div class="n" th:text="${result.errors}"></div><div class="l">Need attention</div></div>
+    </div>
+    <p class="muted" th:if="${result.errors > 0}">Fix the rows with problems (ask the clerk, or correct the file) and upload
+      the same file again. Rows already posted will be skipped.</p>
+    <div class="table-wrap" style="margin-top:12px"><table>
+      <thead><tr><th>Sheet</th><th class="r">Row</th><th>Outcome</th><th>Detail</th></tr></thead>
+      <tbody>
+      <tr th:each="row : ${result.rows}">
+        <td th:text="${row.sheet}"></td>
+        <td class="r" th:text="${row.row}"></td>
+        <td><span class="badge" th:classappend="${row.outcome.name() == 'POSTED'} ? 's-COMPLETED' : (${row.outcome.name() == 'SKIPPED'} ? 's-CANCELLED' : 's-THRESHOLD_MET')" th:text="${row.outcome}"></span></td>
+        <td th:text="${row.message}"></td>
+      </tr>
+      </tbody>
+    </table></div>
+  </th:block>
+</section>
+</html>

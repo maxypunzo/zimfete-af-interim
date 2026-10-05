@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<span th:fragment="status(a)" class="badge" th:classappend="'s-' + ${a.status}" th:text="${a.status.label}">status</span>
+
+<div th:fragment="progress(a)" class="progress" th:classappend="${a.thresholdReached} ? 'done'"
+     th:title="${a.depositProgress} + '% of minimum deposit'">
+  <span th:style="'width:' + ${a.depositProgress > 100 ? 100 : a.depositProgress} + '%'"></span>
+</div>
+
+<select th:fragment="branchFilter(selected, allLabel)" name="branchId">
+  <option value="" th:text="${allLabel}">All branches</option>
+  <option th:each="b : ${branches}" th:value="${b.id}" th:text="${b.label}" th:selected="${b.id == selected}"></option>
+</select>
+</body>
+</html>

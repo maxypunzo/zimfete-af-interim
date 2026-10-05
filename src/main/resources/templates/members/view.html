@@ -1,0 +1,63 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page(${member.fullName}, 'members', ~{::section})}">
+<section>
+  <h1 th:text="${member.fullName} + ' — ' + ${member.memberNo}"></h1>
+  <div class="actions">
+    <a class="btn orange" th:href="@{/members/{id}/open-account(id=${member.id})}">+ Open asset finance account ($50)</a>
+    <a class="btn" th:href="@{/receipts/new(memberId=${member.id}, type='SUBSCRIPTION')}">Receipt subscription</a>
+    <a class="btn" th:if="${!member.joiningFeePaid}" th:href="@{/receipts/new(memberId=${member.id}, type='JOINING_FEE')}">Receipt joining fee</a>
+    <a class="btn alt" th:href="@{/members/{id}/edit(id=${member.id})}">Edit details</a>
+  </div>
+  <div class="grid g2">
+    <div class="card"><dl class="kv">
+      <dt>National ID</dt><dd th:text="${member.nationalId}"></dd>
+      <dt>Gender</dt><dd th:text="${member.gender} ?: '-'"></dd>
+      <dt>Phone</dt><dd th:text="${member.phone} ?: '-'"></dd>
+      <dt>Village / ward</dt><dd th:text="${(member.village ?: '-') + ' / ward ' + (member.ward ?: '-')}"></dd>
+      <dt>District</dt><dd th:text="${member.district}"></dd>
+      <dt>Branch</dt><dd th:text="${member.branch.label}"></dd>
+      <dt>Next of kin</dt><dd th:text="${member.nextOfKin} ?: '-'"></dd>
+      <dt>Notes</dt><dd th:text="${member.notes} ?: '-'"></dd>
+    </dl></div>
+    <div class="card"><dl class="kv">
+      <dt>Joined</dt><dd th:text="${#temporals.format(member.dateJoined, 'dd MMM yyyy')}"></dd>
+      <dt>Joining fee</dt><dd th:text="${member.joiningFeePaid} ? 'Paid' : 'Not paid'" th:classappend="${!member.joiningFeePaid} ? 'red'"></dd>
+      <dt>Subscriptions paid to</dt><dd th:text="${member.subsPaidUntil != null ? #temporals.format(member.subsPaidUntil, 'MMMM yyyy') : 'None paid'}"></dd>
+      <dt>Months owed</dt><dd th:text="${monthsOwed} + ' ($' + ${monthsOwed} + ')'" th:classappend="${monthsOwed > 0} ? 'red'"></dd>
+    </dl></div>
+  </div>
+
+  <h2>Asset finance accounts</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Account</th><th>Opened</th><th>Asset</th><th class="r">Quotation</th><th class="r">Deposited</th><th>Progress</th><th>Status</th><th class="r">Loan balance</th><th></th></tr></thead>
+    <tbody>
+    <tr th:each="a : ${accounts}">
+      <td><a th:href="@{/accounts/{id}(id=${a.id})}" th:text="${a.accountNo}"></a></td>
+      <td th:text="${#temporals.format(a.openedDate, 'dd/MM/yyyy')}"></td>
+      <td th:text="${a.assetType != null ? a.assetType.label : '-'}"></td>
+      <td class="r" th:text="${a.quotationCost != null ? #numbers.formatDecimal(a.quotationCost, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(a.totalDeposited, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td><div th:replace="~{fragments :: progress(${a})}"></div></td>
+      <td><span th:replace="~{fragments :: status(${a})}"></span></td>
+      <td class="r" th:text="${a.loanBalance != null ? #numbers.formatDecimal(a.loanBalance, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
+      <td><a class="btn sm" th:if="${a.status.name() != 'CANCELLED'}" th:href="@{/receipts/new(accountId=${a.id})}" th:text="${a.loanStarted} ? 'Repayment' : 'Deposit'"></a></td>
+    </tr>
+    <tr th:if="${#lists.isEmpty(accounts)}"><td colspan="9" class="muted">No asset finance account yet.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>Receipts</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Receipt</th><th>Type</th><th>Account</th><th class="r">Amount</th><th>Captured by</th></tr></thead>
+    <tbody>
+    <tr th:each="r : ${receipts}" th:classappend="${r.reversed} ? 'reversed'">
+      <td th:text="${#temporals.format(r.receiptDate, 'dd/MM/yyyy')}"></td>
+      <td><a th:href="@{/receipts/{id}(id=${r.id})}" th:text="${r.receiptNo}"></a></td>
+      <td th:text="${r.type.label} + (${r.months} != null ? ' (' + ${r.months} + ' mo)' : '')"></td>
+      <td th:text="${r.account != null ? r.account.accountNo : ''}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(r.amount, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td th:text="${r.capturedBy}"></td>
+    </tr>
+    </tbody>
+  </table></div>
+</section>
+</html>

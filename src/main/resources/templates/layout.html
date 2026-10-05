@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:fragment="page(title, nav, content)">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:text="${title} + ' · ZimFete Asset Finance'">ZimFete Asset Finance</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<header class="top">
+  <a class="brand" th:href="@{/}"><img th:src="@{/logo.png}" alt="">ZimFete Asset Finance</a>
+  <nav>
+    <a th:href="@{/}" th:classappend="${nav == 'home'} ? 'on'">Dashboard</a>
+    <a th:href="@{/members}" th:classappend="${nav == 'members'} ? 'on'">Members</a>
+    <a th:href="@{/receipts/new}" th:classappend="${nav == 'receipt'} ? 'on'">Receipt</a>
+    <a th:href="@{/receipts}" th:classappend="${nav == 'receipts'} ? 'on'">Receipts</a>
+    <a th:href="@{/expenses}" th:classappend="${nav == 'expenses'} ? 'on'">Expenditure</a>
+    <a th:href="@{/register}" th:classappend="${nav == 'register'} ? 'on'">Master register</a>
+    <a th:href="@{/reports/daily}" th:classappend="${nav == 'daily'} ? 'on'">Daily report</a>
+    <a th:href="@{/reports/monthly}" th:classappend="${nav == 'monthly'} ? 'on'">Monthly I&amp;E</a>
+    <a th:href="@{/import}" th:classappend="${nav == 'import'} ? 'on'">District returns</a>
+    <a th:href="@{/branches}" th:classappend="${nav == 'branches'} ? 'on'">Branches</a>
+  </nav>
+  <form th:action="@{/logout}" method="post"><button class="sm" type="submit">Log out</button></form>
+</header>
+<main>
+  <div class="flash ok" th:if="${message}" th:text="${message}"></div>
+  <div class="flash err" th:if="${error}" th:text="${error}"></div>
+  <th:block th:replace="${content}"></th:block>
+</main>
+</body>
+</html>

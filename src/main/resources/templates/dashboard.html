@@ -1,0 +1,115 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Dashboard', 'home', ~{::section})}">
+<section>
+  <h1>Asset Finance — all districts</h1>
+  <p class="sub" th:text="'As at ' + ${#temporals.format(today, 'EEEE dd MMMM yyyy')}"></p>
+
+  <div class="actions">
+    <a class="btn orange" th:href="@{/members/new}">+ New member</a>
+    <a class="btn" th:href="@{/receipts/new}">+ Receipt payment</a>
+    <a class="btn alt" th:href="@{/reports/daily}">Today's report</a>
+    <a class="btn alt" th:href="@{/import}">Capture a district return</a>
+    <a class="btn alt" th:href="@{/reports/register.xlsx}">Export master register (Excel)</a>
+  </div>
+
+  <div class="grid g4">
+    <a class="kpi" th:href="@{/members}"><div class="n" th:text="${totals.members}">0</div><div class="l">Members</div></a>
+    <a class="kpi" th:href="@{/register}"><div class="n" th:text="${totals.accounts}">0</div><div class="l">Accounts opened</div></a>
+    <a class="kpi" th:href="@{/register(from=${today.withDayOfMonth(1)})}"><div class="n" th:text="${totals.accountsThisMonth}">0</div><div class="l">Opened this month</div></a>
+    <a class="kpi" th:href="@{/register(tab='deposits')}"><div class="n" th:text="'$' + ${#numbers.formatDecimal(totals.depositsTotal, 1, 'COMMA', 2, 'POINT')}">0</div><div class="l">Deposits held / paid in</div></a>
+    <a class="kpi" th:href="@{/register(tab='deposits', from=${today.withDayOfMonth(1)})}"><div class="n" th:text="'$' + ${#numbers.formatDecimal(totals.depositsThisMonth, 1, 'COMMA', 2, 'POINT')}">0</div><div class="l">Deposits this month</div></a>
+    <a class="kpi warn" th:href="@{/register(tab='projects', status='THRESHOLD_MET')}"><div class="n" th:text="${totals.thresholdMet}">0</div><div class="l">Reached min. deposit</div></a>
+    <a class="kpi warn" th:href="@{/register(tab='projects', view='due')}"><div class="n" th:text="${totals.due}">0</div><div class="l">Due / overdue (14 days)</div></a>
+    <a class="kpi" th:href="@{/register(tab='projects', status='IN_PROGRESS')}"><div class="n" th:text="${totals.inProgress}">0</div><div class="l">Projects started</div></a>
+    <a class="kpi good" th:href="@{/register(tab='projects', status='COMPLETED')}"><div class="n" th:text="${totals.completed}">0</div><div class="l">Completed</div></a>
+    <a class="kpi" th:href="@{/register(tab='loans')}"><div class="n" th:text="'$' + ${#numbers.formatDecimal(totals.loanBook, 1, 'COMMA', 2, 'POINT')}">0</div><div class="l">Loan book balance</div></a>
+    <a class="kpi warn" th:href="@{/register(tab='loans')}"><div class="n" th:text="'$' + ${#numbers.formatDecimal(totals.arrears, 1, 'COMMA', 2, 'POINT')}">0</div><div class="l">Repayment arrears</div></a>
+    <a class="kpi" th:href="@{/reports/daily(all=true)}"><div class="n" th:text="'$' + ${#numbers.formatDecimal(todayReport.receiptsTotal, 1, 'COMMA', 2, 'POINT')}">0</div><div class="l">Received today (all)</div></a>
+  </div>
+
+  <h2>By district</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>District</th><th class="r">Members</th><th class="r">Accounts</th><th class="r">This month</th>
+      <th class="r">Deposits</th><th class="r">Deposits this month</th><th class="r">Saving</th><th class="r">Min. reached</th>
+      <th class="r">Started</th><th class="r">Completed</th><th class="r">Due</th><th class="r">Loan book</th><th class="r">Arrears</th></tr></thead>
+    <tbody>
+    <tr th:each="s : ${stats}">
+      <td><a th:href="@{/register(branchId=${s.branch.id})}" th:text="${s.branch.label}"></a>
+        <div class="muted" th:if="${s.branch.clerkName}" th:text="${s.branch.clerkName}"></div></td>
+      <td class="r" th:text="${s.members}"></td>
+      <td class="r" th:text="${s.accounts}"></td>
+      <td class="r" th:text="${s.accountsThisMonth}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(s.depositsTotal, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(s.depositsThisMonth, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td class="r" th:text="${s.saving}"></td>
+      <td class="r" th:text="${s.thresholdMet}"></td>
+      <td class="r" th:text="${s.inProgress}"></td>
+      <td class="r" th:text="${s.completed}"></td>
+      <td class="r" th:classappend="${s.due > 0} ? 'red'" th:text="${s.due}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(s.loanBook, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td class="r" th:classappend="${s.arrears.signum() > 0} ? 'red'" th:text="${#numbers.formatDecimal(s.arrears, 1, 'COMMA', 2, 'POINT')}"></td>
+    </tr>
+    <tr class="total">
+      <td>Total</td><td class="r" th:text="${totals.members}"></td><td class="r" th:text="${totals.accounts}"></td>
+      <td class="r" th:text="${totals.accountsThisMonth}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(totals.depositsTotal, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(totals.depositsThisMonth, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td class="r" th:text="${totals.saving}"></td><td class="r" th:text="${totals.thresholdMet}"></td>
+      <td class="r" th:text="${totals.inProgress}"></td><td class="r" th:text="${totals.completed}"></td>
+      <td class="r" th:text="${totals.due}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(totals.loanBook, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(totals.arrears, 1, 'COMMA', 2, 'POINT')}"></td>
+    </tr>
+    </tbody>
+  </table></div>
+
+  <div class="grid g2">
+    <div>
+      <h2>Ready to start — minimum deposit reached</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Account</th><th>Member</th><th>Asset</th><th class="r">Deposited</th><th>Reached</th></tr></thead>
+        <tbody>
+        <tr th:each="a : ${ready}">
+          <td><a th:href="@{/accounts/{id}(id=${a.id})}" th:text="${a.accountNo}"></a></td>
+          <td th:text="${a.member.fullName}"></td>
+          <td th:text="${a.assetType != null ? a.assetType.label : '-'}"></td>
+          <td class="r" th:text="${#numbers.formatDecimal(a.totalDeposited, 1, 'COMMA', 2, 'POINT')} + ' / ' + ${#numbers.formatDecimal(a.quotationCost, 1, 'COMMA', 2, 'POINT')}"></td>
+          <td th:text="${#temporals.format(a.thresholdReachedDate, 'dd/MM/yyyy')}"></td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(ready)}"><td colspan="5" class="muted">None at the moment.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div>
+      <h2>Due or overdue (target date within 14 days, not started)</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Account</th><th>Member</th><th>Target</th><th>Progress</th></tr></thead>
+        <tbody>
+        <tr th:each="a : ${due}">
+          <td><a th:href="@{/accounts/{id}(id=${a.id})}" th:text="${a.accountNo}"></a><div class="muted" th:text="${a.branch.name}"></div></td>
+          <td th:text="${a.member.fullName}"></td>
+          <td th:classappend="${a.targetDate.isBefore(today)} ? 'red'" th:text="${#temporals.format(a.targetDate, 'dd/MM/yyyy')}"></td>
+          <td><div th:replace="~{fragments :: progress(${a})}"></div><span class="muted" th:text="${a.depositProgress} + '%'"></span></td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(due)}"><td colspan="4" class="muted">Nothing due.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <h2>Latest receipts (7 days)</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Receipt</th><th>Branch</th><th>Type</th><th>Paid by</th><th class="r">Amount</th></tr></thead>
+    <tbody>
+    <tr th:each="r : ${recent}" th:classappend="${r.reversed} ? 'reversed'">
+      <td th:text="${#temporals.format(r.receiptDate, 'dd/MM/yyyy')}"></td>
+      <td><a th:href="@{/receipts/{id}(id=${r.id})}" th:text="${r.receiptNo}"></a></td>
+      <td th:text="${r.branch.name}"></td>
+      <td th:text="${r.type.label}"></td>
+      <td th:text="${r.payerName}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(r.amount, 1, 'COMMA', 2, 'POINT')}"></td>
+    </tr>
+    <tr th:if="${#lists.isEmpty(recent)}"><td colspan="6" class="muted">No receipts yet.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+</html>

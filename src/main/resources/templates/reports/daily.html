@@ -1,0 +1,75 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Daily report', 'daily', ~{::section})}">
+<section>
+  <h1>Income &amp; expenditure report</h1>
+  <form class="inline card" method="get" th:action="@{/reports/daily}">
+    <div><label>From</label><input type="date" name="from" th:value="${from}"></div>
+    <div><label>To</label><input type="date" name="to" th:value="${to}"></div>
+    <div><label>Branch</label><select name="branchId">
+      <option th:each="b : ${branches}" th:value="${b.id}" th:text="${b.label}" th:selected="${b.id == branchId}"></option></select></div>
+    <div><label><input type="checkbox" name="all" value="true" th:checked="${branchId == null}"> All branches</label></div>
+    <button type="submit">Show</button>
+    <a class="btn alt" th:href="@{/reports/daily(from=${from.minusDays(1)}, to=${from.minusDays(1)}, branchId=${branchId}, all=${branchId == null})}">◀ Previous day</a>
+    <a class="btn alt" th:href="@{/reports/daily(from=${from.minusDays(from.dayOfWeek.value - 1)}, to=${from.minusDays(from.dayOfWeek.value - 1).plusDays(6)}, branchId=${branchId}, all=${branchId == null})}">This week</a>
+    <button type="button" class="alt" onclick="window.print()">Print</button>
+  </form>
+
+  <h2 th:text="${r.title}"></h2>
+  <div class="grid g2">
+    <div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Receipts</th><th class="r">No.</th><th class="r">Amount ($)</th></tr></thead>
+        <tbody>
+        <tr th:each="t : ${types}" th:if="${t.income}">
+          <td th:text="${t.label}"></td><td class="r" th:text="${r.countByType.get(t)}"></td>
+          <td class="r" th:text="${#numbers.formatDecimal(r.byType.get(t), 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr class="total"><td colspan="2">Income (fees)</td><td class="r" th:text="${#numbers.formatDecimal(r.incomeTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr th:each="t : ${types}" th:unless="${t.income}">
+          <td th:text="${t.label}"></td><td class="r" th:text="${r.countByType.get(t)}"></td>
+          <td class="r" th:text="${#numbers.formatDecimal(r.byType.get(t), 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr class="total"><td colspan="2">Deposits &amp; repayments (client funds)</td><td class="r" th:text="${#numbers.formatDecimal(r.collectionsTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr class="total"><td colspan="2">TOTAL RECEIVED</td><td class="r" th:text="${#numbers.formatDecimal(r.receiptsTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr><td colspan="3" class="muted">By payment method:
+          <span th:each="e, s : ${r.byPaymentMethod}" th:text="${e.key} + ' $' + ${#numbers.formatDecimal(e.value, 1, 'COMMA', 2, 'POINT')} + (${s.last} ? '' : ' · ')"></span></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Expenditure</th><th class="r">Amount ($)</th></tr></thead>
+        <tbody>
+        <tr th:each="e : ${r.expensesByCategory}"><td th:text="${e.key}"></td><td class="r" th:text="${#numbers.formatDecimal(e.value, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr th:if="${#maps.isEmpty(r.expensesByCategory)}"><td colspan="2" class="muted">No expenditure.</td></tr>
+        <tr class="total"><td>TOTAL SPENT</td><td class="r" th:text="${#numbers.formatDecimal(r.expensesTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr class="total"><td>NET CASH (received − spent)</td><td class="r" th:text="${#numbers.formatDecimal(r.net, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr><td>New members</td><td class="r" th:text="${r.newMembers}"></td></tr>
+        <tr><td>Accounts opened</td><td class="r" th:text="${r.accountsOpened}"></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <h2>Receipts in detail</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Receipt</th><th>Branch</th><th>Paid by</th><th>Type</th><th>Account / asset</th><th class="r">Amount</th></tr></thead>
+    <tbody>
+    <tr th:each="x : ${r.receipts}">
+      <td th:text="${#temporals.format(x.receiptDate, 'dd/MM')}"></td>
+      <td th:text="${x.receiptNo}"></td>
+      <td th:text="${x.branch.name}"></td>
+      <td th:text="${x.payerName}"></td>
+      <td th:text="${x.type.label}"></td>
+      <td th:text="${x.account != null ? x.account.accountNo + (x.account.assetType != null ? ' · ' + x.account.assetType.label : '') : ''}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(x.amount, 1, 'COMMA', 2, 'POINT')}"></td>
+    </tr>
+    <tr th:if="${#lists.isEmpty(r.receipts)}"><td colspan="7" class="muted">No receipts.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="no-print">
+    <h2>WhatsApp version</h2>
+    <p class="muted">Copy and paste into the WhatsApp group.</p>
+    <textarea id="wa" class="wa" readonly th:text="${whatsapp}"></textarea>
+    <div class="actions"><button type="button" onclick="navigator.clipboard.writeText(document.getElementById('wa').value).then(()=>this.textContent='Copied ✓')">Copy to clipboard</button></div>
+  </div>
+</section>
+</html>

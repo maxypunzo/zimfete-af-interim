@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · ZimFete Asset Finance</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div class="login card">
+  <p style="text-align:center"><img th:src="@{/logo.png}" alt="ZimFete" style="height:60px"></p>
+  <h1 style="text-align:center">Asset Finance System</h1>
+  <div class="flash err" th:if="${param.error}">Wrong username or password.</div>
+  <div class="flash ok" th:if="${param.logout}">You have been logged out.</div>
+  <form th:action="@{/login}" method="post" class="grid">
+    <div><label>Username</label><input name="username" autofocus required></div>
+    <div><label>Password</label><input name="password" type="password" required></div>
+    <button type="submit">Sign in</button>
+  </form>
+</div>
+</body>
+</html>

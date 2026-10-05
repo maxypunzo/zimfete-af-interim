@@ -1,0 +1,41 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Expenditure', 'expenses', ~{::section})}">
+<section>
+  <h1>Expenditure</h1>
+  <form class="card" method="post" th:action="@{/expenses}">
+    <h2 style="margin-top:0">Record a payment out</h2>
+    <div class="form-grid">
+      <div><label>Branch</label><select name="branchId"><option th:each="b : ${branches}" th:value="${b.id}" th:text="${b.label}" th:selected="${b.id == hqBranchId}"></option></select></div>
+      <div><label>Date</label><input type="date" name="expenseDate" th:value="${today}" required></div>
+      <div><label>Category</label><select name="category"><option th:each="c : ${expenseCategories}" th:value="${c}" th:text="${c}"></option></select></div>
+      <div><label>Description</label><input name="description"></div>
+      <div><label>Paid to</label><input name="payee"></div>
+      <div><label>Voucher no</label><input name="voucherNo"></div>
+      <div><label>Amount ($)</label><input type="number" step="0.01" min="0.01" name="amount" required></div>
+      <div style="align-self:end"><button type="submit" class="orange">Save</button></div>
+    </div>
+  </form>
+  <form class="inline card" method="get" th:action="@{/expenses}">
+    <div><label>From</label><input type="date" name="from" th:value="${from}"></div>
+    <div><label>To</label><input type="date" name="to" th:value="${to}"></div>
+    <div><label>Branch</label><select th:replace="~{fragments :: branchFilter(${branchId}, 'All branches')}"></select></div>
+    <button type="submit">Show</button>
+  </form>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Branch</th><th>Category</th><th>Description</th><th>Paid to</th><th>Voucher</th><th class="r">Amount</th><th>Source</th><th></th></tr></thead>
+    <tbody>
+    <tr th:each="e : ${expenses}">
+      <td th:text="${#temporals.format(e.expenseDate, 'dd/MM/yyyy')}"></td>
+      <td th:text="${e.branch.name}"></td>
+      <td th:text="${e.category}"></td>
+      <td th:text="${e.description}"></td>
+      <td th:text="${e.payee}"></td>
+      <td th:text="${e.voucherNo}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(e.amount, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td th:text="${e.source}"></td>
+      <td><form method="post" th:action="@{/expenses/{id}/delete(id=${e.id})}" onsubmit="return confirm('Delete this line?')"><button class="sm danger">Delete</button></form></td>
+    </tr>
+    <tr class="total"><td colspan="6">Total</td><td class="r" th:text="${#numbers.formatDecimal(total, 1, 'COMMA', 2, 'POINT')}"></td><td colspan="2"></td></tr>
+    </tbody>
+  </table></div>
+</section>
+</html>

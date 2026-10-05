@@ -1,0 +1,22 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Edit member', 'members', ~{::section})}">
+<section>
+  <h1>Edit member details</h1>
+  <form method="post" th:action="@{/members/{id}/edit(id=${memberId})}" th:object="${member}">
+    <fieldset><legend>Member details</legend>
+      <div class="form-grid">
+        <div><label>First name(s)</label><input th:field="*{firstName}" required></div>
+        <div><label>Surname</label><input th:field="*{surname}" required></div>
+        <div><label>National ID</label><input th:field="*{nationalId}" required></div>
+        <div><label>Gender</label><select th:field="*{gender}"><option value="">-</option><option value="Female">Female</option><option value="Male">Male</option></select></div>
+        <div><label>Phone</label><input th:field="*{phone}"></div>
+        <div><label>Village</label><input th:field="*{village}"></div>
+        <div><label>Ward</label><input th:field="*{ward}"></div>
+        <div><label>District</label><input th:field="*{district}"></div>
+        <div><label>Next of kin</label><input th:field="*{nextOfKin}"></div>
+      </div>
+      <div style="margin-top:10px"><label>Notes</label><textarea th:field="*{notes}" rows="3"></textarea></div>
+    </fieldset>
+    <div class="actions"><button type="submit">Save</button><a class="btn alt" th:href="@{/members/{id}(id=${memberId})}">Cancel</a></div>
+  </form>
+</section>
+</html>
