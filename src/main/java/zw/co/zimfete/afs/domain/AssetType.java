@@ -6,7 +6,11 @@ public enum AssetType {
     FARMING_INPUTS("Farming inputs"),
     FENCING("Fencing"),
     IRRIGATION("Irrigation equipment"),
-    LIVESTOCK("Livestock / housing"),
+    POULTRY("Poultry"),
+    PIGGERY("Piggery"),
+    LIVESTOCK("Other livestock / housing"),
+    WATER_STORAGE("Water tank / storage"),
+    BUSINESS("Business equipment"),
     EQUIPMENT("Machinery / equipment"),
     OTHER("Other");
 
@@ -28,7 +32,11 @@ public enum AssetType {
         if (lower.contains("solar")) return SOLAR;
         if (lower.contains("fenc")) return FENCING;
         if (lower.contains("input") || lower.contains("seed") || lower.contains("fert")) return FARMING_INPUTS;
-        if (lower.contains("irrig")) return IRRIGATION;
+        if (lower.contains("irrig") || lower.contains("drip")) return IRRIGATION;
+        if (lower.contains("poul") || lower.contains("pour") || lower.contains("chick")) return POULTRY;
+        if (lower.contains("pig")) return PIGGERY;
+        if (lower.contains("tank")) return WATER_STORAGE;
+        if (lower.contains("garage") || lower.contains("business") || lower.contains("company")) return BUSINESS;
         return OTHER;
     }
 }

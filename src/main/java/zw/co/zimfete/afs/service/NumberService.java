@@ -1,5 +1,7 @@
 package zw.co.zimfete.afs.service;
 
+import java.time.LocalDate;
+import java.util.function.LongFunction;
 import java.util.function.Predicate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -9,8 +11,9 @@ import zw.co.zimfete.afs.domain.NumberSequence;
 import zw.co.zimfete.afs.repo.NumberSequenceRepository;
 
 /**
- * Generates member, account and receipt numbers per branch, e.g. MRW-M00012, AF-MRW-0007, MRW-R000123.
- * Numbers already taken (for example account numbers a district clerk issued and we imported) are skipped.
+ * Generates numbers per branch. Account numbers follow the existing register's style, e.g. MRE2641ME
+ * (branch code, two-digit year, running number, "ME"). Numbers already taken, such as ones a district clerk
+ * issued and we imported, are skipped.
  */
 @Service
 public class NumberService {
@@ -21,13 +24,14 @@ public class NumberService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public String memberNo(Branch b, Predicate<String> taken) {
-        return next("MEM-" + b.getCode(), n -> String.format("%s-M%05d", b.getCode(), n), taken);
+    public String clientNo(Branch b, Predicate<String> taken) {
+        return next("CLI-" + b.getCode(), n -> String.format("%s-C%05d", b.getCode(), n), taken);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public String accountNo(Branch b, Predicate<String> taken) {
-        return next("ACC-" + b.getCode(), n -> String.format("AF-%s-%04d", b.getCode(), n), taken);
+    public String accountNo(Branch b, LocalDate opened, Predicate<String> taken) {
+        String yy = String.format("%02d", opened.getYear() % 100);
+        return next("ACC-" + b.getCode(), n -> String.format("%s%s%02dME", b.getCode(), yy, n), taken);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -35,7 +39,7 @@ public class NumberService {
         return next("RCT-" + b.getCode(), n -> String.format("%s-R%06d", b.getCode(), n), taken);
     }
 
-    private String next(String key, java.util.function.LongFunction<String> format, Predicate<String> taken) {
+    private String next(String key, LongFunction<String> format, Predicate<String> taken) {
         NumberSequence seq = sequences.lock(key).orElseGet(() -> sequences.saveAndFlush(new NumberSequence(key, 1)));
         long n = seq.getNextValue();
         String candidate = format.apply(n);

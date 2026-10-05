@@ -13,7 +13,7 @@ public interface AssetAccountRepository extends JpaRepository<AssetAccount, Long
 
     boolean existsByAccountNoIgnoreCase(String accountNo);
 
-    List<AssetAccount> findByMemberIdOrderByOpenedDateDesc(Long memberId);
+    List<AssetAccount> findByClientIdOrderByOpenedDateDesc(Long clientId);
 
     List<AssetAccount> findAllByOrderByOpenedDateDescIdDesc();
 

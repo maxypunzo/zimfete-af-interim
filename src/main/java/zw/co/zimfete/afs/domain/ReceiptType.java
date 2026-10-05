@@ -3,7 +3,8 @@ package zw.co.zimfete.afs.domain;
 import java.math.BigDecimal;
 
 /**
- * What a receipt was for. {@code income} marks ZimFete's own revenue; deposits and loan repayments are
+ * What a receipt was for. Joining fees and subscriptions apply to SACCO members (veteran community) only.
+ * {@code income} marks ZimFete's own revenue; deposits and loan repayments are
  * client money / collections and are reported separately on the cash book.
  */
 public enum ReceiptType {
@@ -27,7 +28,9 @@ public enum ReceiptType {
     public String getLabel() { return label; }
     public boolean isIncome() { return income; }
     public BigDecimal getStandardAmount() { return standardAmount; }
-    public boolean needsAccount() { return this == ASSET_DEPOSIT || this == LOAN_REPAYMENT; }
+    public boolean needsProject() { return this == ASSET_DEPOSIT || this == LOAN_REPAYMENT; }
+
+    public boolean isMembershipFee() { return this == JOINING_FEE || this == SUBSCRIPTION; }
 
     public static ReceiptType parse(String text) {
         if (text == null || text.isBlank()) return null;

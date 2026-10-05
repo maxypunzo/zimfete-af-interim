@@ -1,0 +1,25 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Enrol member', 'clients', ~{::section})}">
+<section>
+  <h1 th:text="'Enrol ' + ${client.fullName} + ' as a SACCO member'"></h1>
+  <p class="sub">Membership is for the veteran community. It gives access to the grant once approved; asset finance
+    still follows company policy (account, deposit, loan).</p>
+  <form method="post" th:action="@{/clients/{id}/enrol(id=${client.id})}" th:object="${form}">
+    <fieldset><legend>Membership</legend>
+      <div class="form-grid">
+        <div><label>Category</label><select th:field="*{category}" required><option value="">- choose -</option>
+          <option th:each="c : ${veteranCategories}" th:value="${c}" th:text="${c.label}"></option></select></div>
+        <div><label>Member since</label><input type="date" th:field="*{memberSince}" required></div>
+        <div><label>Vet / WC registration no</label><input th:field="*{veteranRef}"></div>
+        <div><label>Related veteran (widows, descendants)</label><input th:field="*{relatedVeteran}"></div>
+        <div><label><input type="checkbox" th:field="*{payJoiningFee}"> Joining fee $10 paid</label>
+          <input th:field="*{joiningReceiptNo}" placeholder="Receipt book no (blank = auto)"></div>
+        <div><label>Subscription months paid ($1/month)</label><input type="number" min="0" th:field="*{subsMonths}">
+          <input th:field="*{subsReceiptNo}" placeholder="Receipt book no (blank = auto)" style="margin-top:4px"></div>
+        <div><label>Payment method</label><select th:field="*{paymentMethod}"><option th:each="p : ${paymentMethods}" th:value="${p}" th:text="${p}"></option></select></div>
+        <div><label>Captured by</label><input th:field="*{capturedBy}"></div>
+      </div>
+    </fieldset>
+    <div class="actions"><button type="submit" class="orange">Enrol member</button><a class="btn alt" th:href="@{/clients/{id}(id=${client.id})}">Cancel</a></div>
+  </form>
+</section>
+</html>

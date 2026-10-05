@@ -1,0 +1,117 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page(${p.assetLabel}, 'register', ~{::section})}">
+<section>
+  <h1><span th:text="${p.assetLabel} + ' — ' + ${p.client.fullName}"></span> <span th:replace="~{fragments :: status(${p})}"></span></h1>
+  <p class="sub">Account <a th:href="@{/accounts/{id}(id=${p.account.id})}" th:text="${p.account.accountNo}"></a>
+    · <a th:href="@{/clients/{id}(id=${p.client.id})}" th:text="${p.client.clientNo}"></a>
+    · <span th:text="${p.branch.label}"></span> · <span th:text="${p.client.ward} ?: ''"></span>
+    <span class="red" th:if="${!p.account.active}" th:text="' · Account inactive: opening fee $' + ${p.account.openingFeeBalance} + ' due'"></span></p>
+
+  <div class="actions">
+    <a class="btn orange" th:if="${p.status.preStart or p.loanStarted}" th:href="@{/receipts/new(projectId=${p.id})}"
+       th:text="${p.loanStarted} ? 'Receipt loan repayment' : 'Receipt deposit'"></a>
+    <a class="btn alt" th:href="@{/projects/{id}/edit(id=${p.id})}">Edit project details</a>
+  </div>
+
+  <div class="grid g2">
+    <div class="card"><h2 style="margin-top:0">Project</h2><dl class="kv">
+      <dt>Supplier</dt><dd th:text="${p.supplier} ?: '-'"></dd>
+      <dt>Project cost</dt><dd th:text="${p.quotationCost != null ? '$' + #numbers.formatDecimal(p.quotationCost, 1, 'COMMA', 2, 'POINT') : 'Not captured'}"></dd>
+      <dt>Minimum deposit</dt><dd th:text="${p.minimumDeposit != null ? '$' + #numbers.formatDecimal(p.minimumDeposit, 1, 'COMMA', 2, 'POINT') + ' (' + (p.minDepositPercent ?: 50) + '%)' : '-'}"></dd>
+      <dt>Deposited</dt><dd><strong th:text="'$' + ${#numbers.formatDecimal(p.totalDeposited, 1, 'COMMA', 2, 'POINT')}"></strong>
+        <div th:replace="~{fragments :: progress(${p})}"></div></dd>
+      <dt>Shortfall</dt><dd th:text="${p.depositShortfall != null ? '$' + #numbers.formatDecimal(p.depositShortfall, 1, 'COMMA', 2, 'POINT') : '-'}"></dd>
+      <dt>Target start</dt><dd th:text="${p.targetDate != null ? #temporals.format(p.targetDate, 'dd MMM yyyy') : '-'}"></dd>
+      <dt>Min. deposit reached</dt><dd th:text="${p.thresholdReachedDate != null ? #temporals.format(p.thresholdReachedDate, 'dd MMM yyyy') : 'Not yet'}"></dd>
+      <dt>Committee approval</dt><dd th:text="${p.approvedDate != null ? #temporals.format(p.approvedDate, 'dd MMM yyyy') + (p.approvalNote != null ? ' — ' + p.approvalNote : '') : 'Not yet'}"></dd>
+      <dt>Funds disbursed</dt><dd th:text="${p.projectStartDate != null ? #temporals.format(p.projectStartDate, 'dd MMM yyyy') + ': $' + #numbers.formatDecimal(p.disbursedAmount, 1, 'COMMA', 2, 'POINT') + (p.disbursedTo != null ? ' to ' + p.disbursedTo : '') : '-'}"></dd>
+      <dt>Completed</dt><dd th:text="${p.completionDate != null ? #temporals.format(p.completionDate, 'dd MMM yyyy') + ' (' + p.daysToComplete + ' days)' : '-'}"></dd>
+      <dt>Notes</dt><dd style="white-space:pre-line" th:text="${p.notes} ?: '-'"></dd>
+    </dl></div>
+
+    <div class="card">
+      <th:block th:if="${p.loanStarted}">
+        <h2 style="margin-top:0">Loan</h2>
+        <dl class="kv">
+          <dt>Principal</dt><dd th:text="'$' + ${#numbers.formatDecimal(p.loanTerms.principal, 1, 'COMMA', 2, 'POINT')}"></dd>
+          <dt th:text="'Interest (' + ${p.interestRate} + '% once)'">Interest</dt><dd th:text="'$' + ${#numbers.formatDecimal(p.loanTerms.interest, 1, 'COMMA', 2, 'POINT')}"></dd>
+          <dt>Total repayable</dt><dd><strong th:text="'$' + ${#numbers.formatDecimal(p.loanTerms.totalRepayable, 1, 'COMMA', 2, 'POINT')}"></strong></dd>
+          <dt>Period</dt><dd th:text="${p.repaymentMonths} + ' months'"></dd>
+          <dt>Monthly instalment</dt><dd th:text="'$' + ${#numbers.formatDecimal(p.loanTerms.monthlyInstalment, 1, 'COMMA', 2, 'POINT')}"></dd>
+          <dt>Repaid</dt><dd th:text="'$' + ${#numbers.formatDecimal(p.totalRepaid, 1, 'COMMA', 2, 'POINT')}"></dd>
+          <dt>Balance</dt><dd><strong th:text="'$' + ${#numbers.formatDecimal(p.loanBalance, 1, 'COMMA', 2, 'POINT')}"></strong></dd>
+          <dt>Arrears today</dt><dd th:classappend="${arrears.signum() > 0} ? 'red'" th:text="'$' + ${#numbers.formatDecimal(arrears, 1, 'COMMA', 2, 'POINT')}"></dd>
+          <dt>Loan cleared</dt><dd th:text="${p.loanClearedDate != null ? #temporals.format(p.loanClearedDate, 'dd MMM yyyy') : 'No'}"></dd>
+        </dl>
+        <form th:if="${p.status.name() == 'IN_PROGRESS'}" class="inline" style="margin-top:14px" method="post" th:action="@{/projects/{id}/complete(id=${p.id})}">
+          <div><label>Asset delivered / installed on</label><input type="date" name="completionDate" th:value="${today}" required></div>
+          <button type="submit">Mark project completed</button>
+        </form>
+      </th:block>
+
+      <th:block th:unless="${p.loanStarted}">
+        <h2 style="margin-top:0">Loan calculator</h2>
+        <p class="muted" th:if="${projection == null}">Capture the project cost to see the loan.</p>
+        <th:block th:if="${projection != null}">
+          <form method="get" class="inline" th:action="@{/projects/{id}(id=${p.id})}">
+            <div><label>Months</label><input type="number" min="1" name="months" th:value="${months}"></div>
+            <div><label>Interest %</label><input type="number" min="0" max="100" step="0.01" name="rate" th:value="${rate}"></div>
+            <button class="alt" type="submit">Recalculate</button>
+          </form>
+          <dl class="kv" style="margin-top:12px">
+            <dt>Cost − deposit</dt><dd th:text="'$' + ${#numbers.formatDecimal(projection.principal, 1, 'COMMA', 2, 'POINT')}"></dd>
+            <dt th:text="'+ ' + ${rate} + '% interest'">+ interest</dt><dd th:text="'$' + ${#numbers.formatDecimal(projection.interest, 1, 'COMMA', 2, 'POINT')}"></dd>
+            <dt>Total loan</dt><dd><strong th:text="'$' + ${#numbers.formatDecimal(projection.totalRepayable, 1, 'COMMA', 2, 'POINT')}"></strong></dd>
+            <dt>Monthly</dt><dd th:text="'$' + ${#numbers.formatDecimal(projection.monthlyInstalment, 1, 'COMMA', 2, 'POINT')} + ' × ' + ${months}"></dd>
+          </dl>
+          <p class="muted">Based on today's deposits; fixed when the funds are disbursed.</p>
+        </th:block>
+
+        <form th:if="${p.status.name() == 'SAVING' or p.status.name() == 'THRESHOLD_MET'}" class="grid" style="margin-top:14px" method="post"
+              th:action="@{/projects/{id}/approve(id=${p.id})}">
+          <h2 style="margin:0">Committee approval</h2>
+          <div class="inline">
+            <div><label>Approved on</label><input type="date" name="approvedDate" th:value="${today}" required></div>
+            <div style="flex:1"><label th:text="${p.thresholdReached} ? 'Note (optional)' : 'Committee reason (min. deposit not reached)'">Note</label>
+              <input name="note" th:required="${!p.thresholdReached}"></div>
+            <button type="submit">Record approval</button>
+          </div>
+        </form>
+
+        <form th:if="${p.status.name() == 'APPROVED'}" class="grid" style="margin-top:14px" method="post" th:action="@{/projects/{id}/start(id=${p.id})}">
+          <h2 style="margin:0">Disburse funds &amp; start project</h2>
+          <div class="form-grid">
+            <div><label>Disbursement date</label><input type="date" name="startDate" th:value="${today}" required></div>
+            <div><label>Amount paid out ($)</label><input type="number" step="0.01" min="0" name="disbursedAmount" th:value="${p.quotationCost}"></div>
+            <div><label>Paid to (supplier)</label><input name="disbursedTo" th:value="${p.supplier}"></div>
+            <div><label>Agreed months</label><input type="number" min="1" name="months" th:value="${months}" required></div>
+            <div><label>Interest %</label><input type="number" min="0" max="100" step="0.01" name="rate" th:value="${rate}"></div>
+          </div>
+          <div><button type="submit" class="orange">Disburse &amp; fix loan</button></div>
+        </form>
+
+        <form th:if="${p.status.preStart}" class="inline" style="margin-top:14px" method="post"
+              th:action="@{/projects/{id}/cancel(id=${p.id})}" onsubmit="return confirm('Cancel this project?')">
+          <div style="flex:1"><label>Cancel project — reason</label><input name="reason"></div>
+          <button type="submit" class="danger">Cancel project</button>
+        </form>
+      </th:block>
+    </div>
+  </div>
+
+  <h2>Project statement</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Receipt</th><th>Type</th><th class="r">Amount</th><th>Method</th><th>Captured by</th></tr></thead>
+    <tbody>
+    <tr th:each="r : ${receipts}" th:classappend="${r.reversed} ? 'reversed'">
+      <td th:text="${#temporals.format(r.receiptDate, 'dd/MM/yyyy')}"></td>
+      <td><a th:href="@{/receipts/{id}(id=${r.id})}" th:text="${r.receiptNo}"></a></td>
+      <td th:text="${r.type.label}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(r.amount, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td th:text="${r.paymentMethod}"></td>
+      <td th:text="${r.capturedBy}"></td>
+    </tr>
+    <tr th:if="${#lists.isEmpty(receipts)}"><td colspan="6" class="muted">No payments yet.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+</html>

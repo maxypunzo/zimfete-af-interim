@@ -3,27 +3,33 @@ package zw.co.zimfete.afs.web;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import zw.co.zimfete.afs.domain.*;
-import zw.co.zimfete.afs.repo.MemberRepository;
+import zw.co.zimfete.afs.repo.AssetAccountRepository;
+import zw.co.zimfete.afs.repo.ClientRepository;
 import zw.co.zimfete.afs.repo.ReceiptRepository;
 import zw.co.zimfete.afs.service.ReportService;
 
-/** The AFM master asset finance register: accounts, deposits, projects, loan book, subscriptions. */
+/** The AFM master register: accounts, deposits, projects, loan book, membership, subscriptions. */
 @Controller
 public class RegisterController {
     private final ReportService reports;
     private final ReceiptRepository receipts;
-    private final MemberRepository members;
+    private final ClientRepository clients;
+    private final AssetAccountRepository accounts;
 
-    public RegisterController(ReportService reports, ReceiptRepository receipts, MemberRepository members) {
+    public RegisterController(ReportService reports, ReceiptRepository receipts, ClientRepository clients,
+                              AssetAccountRepository accounts) {
         this.reports = reports;
         this.receipts = receipts;
-        this.members = members;
+        this.clients = clients;
+        this.accounts = accounts;
     }
 
     @GetMapping("/register")
@@ -50,37 +56,36 @@ public class RegisterController {
             case "deposits" -> {
                 List<Receipt> list = receipts.find(f, t, branchId, ReceiptType.ASSET_DEPOSIT).stream()
                         .filter(r -> !r.isReversed())
-                        .filter(r -> assetType == null || r.getAccount().getAssetType() == assetType).toList();
+                        .filter(r -> assetType == null || r.getProject().getAssetType() == assetType).toList();
                 model.addAttribute("deposits", list);
                 model.addAttribute("total", ReportService.sum(list.stream().map(Receipt::getAmount)));
             }
             case "projects" -> {
-                List<AssetAccount> list;
-                if ("due".equals(view)) {
-                    list = reports.dueProjects(today, 14, branchId);
-                } else {
-                    list = reports.byStatus(status, branchId).stream()
-                            .filter(a -> a.getStatus() != ProjectStatus.CANCELLED || status == ProjectStatus.CANCELLED).toList();
-                }
+                List<Project> list = "due".equals(view) ? reports.dueProjects(today, 14, branchId)
+                        : reports.byStatus(status, branchId).stream()
+                        .filter(p -> p.getStatus() != ProjectStatus.CANCELLED || status == ProjectStatus.CANCELLED).toList();
                 model.addAttribute("projects", list);
             }
             case "loans" -> {
-                List<AssetAccount> list = reports.byStatus(null, branchId).stream().filter(AssetAccount::isLoanStarted)
-                        .sorted(Comparator.comparing((AssetAccount a) -> a.getArrears(today)).reversed()).toList();
+                List<Project> list = reports.byStatus(null, branchId).stream().filter(Project::isLoanStarted)
+                        .sorted(Comparator.comparing((Project p) -> p.getArrears(today)).reversed()).toList();
                 model.addAttribute("loans", list);
-                model.addAttribute("book", ReportService.sum(list.stream().map(AssetAccount::getLoanBalance)));
-                model.addAttribute("arrears", ReportService.sum(list.stream().map(a -> a.getArrears(today))));
+                model.addAttribute("book", ReportService.sum(list.stream().map(Project::getLoanBalance)));
+                model.addAttribute("arrears", ReportService.sum(list.stream().map(p -> p.getArrears(today))));
             }
-            case "subs" -> model.addAttribute("arrearsMembers", members.search(branchId, null).stream()
-                    .filter(m -> m.subsMonthsOwed(today) > 0)
-                    .sorted(Comparator.comparing((Member m) -> m.subsMonthsOwed(today)).reversed()).toList());
+            case "membership" -> model.addAttribute("membership", reports.membership());
+            case "subs" -> model.addAttribute("arrearsMembers", clients.search(branchId, null, true, null).stream()
+                    .filter(c -> c.subsMonthsOwed(today) > 0)
+                    .sorted(Comparator.comparing((Client c) -> c.subsMonthsOwed(today)).reversed()).toList());
             default -> {
-                List<AssetAccount> list = reports.byStatus(status, branchId).stream()
-                        .filter(a -> !a.getOpenedDate().isBefore(f) && !a.getOpenedDate().isAfter(t)).toList();
+                List<AssetAccount> list = accounts.findAllByOrderByOpenedDateDescIdDesc().stream()
+                        .filter(a -> branchId == null || a.getBranch().getId().equals(branchId))
+                        .filter(a -> !a.getOpenedDate().isBefore(f) && !a.getOpenedDate().isAfter(t))
+                        .filter(a -> !"inactive".equals(view) || !a.isActive()).toList();
                 model.addAttribute("accounts", list);
                 model.addAttribute("byClerk", reports.accountsOpenedBy(list));
-                model.addAttribute("byBranch", list.stream().collect(java.util.stream.Collectors.groupingBy(
-                        a -> a.getBranch().getLabel(), java.util.TreeMap::new, java.util.stream.Collectors.counting())));
+                model.addAttribute("byBranch", list.stream().collect(Collectors.groupingBy(
+                        a -> a.getBranch().getLabel(), TreeMap::new, Collectors.counting())));
             }
         }
         return "register";

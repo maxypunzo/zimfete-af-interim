@@ -9,8 +9,9 @@ public class ReceiptRequest {
     private Long branchId;
     private LocalDate receiptDate = LocalDate.now();
     private ReceiptType type;
-    private Long memberId;
+    private Long clientId;
     private Long accountId;
+    private Long projectId;
     private BigDecimal amount;
     private Integer months;
     private String receiptNo;
@@ -26,10 +27,12 @@ public class ReceiptRequest {
     public void setReceiptDate(LocalDate receiptDate) { this.receiptDate = receiptDate; }
     public ReceiptType getType() { return type; }
     public void setType(ReceiptType type) { this.type = type; }
-    public Long getMemberId() { return memberId; }
-    public void setMemberId(Long memberId) { this.memberId = memberId; }
+    public Long getClientId() { return clientId; }
+    public void setClientId(Long clientId) { this.clientId = clientId; }
     public Long getAccountId() { return accountId; }
     public void setAccountId(Long accountId) { this.accountId = accountId; }
+    public Long getProjectId() { return projectId; }
+    public void setProjectId(Long projectId) { this.projectId = projectId; }
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
     public Integer getMonths() { return months; }

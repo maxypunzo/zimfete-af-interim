@@ -8,7 +8,7 @@ import java.time.LocalDate;
 @Entity
 public class Expense {
     public static final String[] CATEGORIES = {
-            "Transport", "Stationery & printing", "Airtime & data", "Bank charges", "Refreshments",
+            "Airtime & travel", "Workshops", "Transport", "Stationery & printing", "Bank charges", "Refreshments",
             "Allowances", "Rent & utilities", "Repairs & maintenance", "Assessment / site visit", "Other"
     };
 

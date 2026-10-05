@@ -3,8 +3,9 @@
   <div class="actions">
     <button type="button" onclick="window.print()">Print receipt</button>
     <a class="btn orange" th:href="@{/receipts/new}">Next receipt</a>
-    <a class="btn alt" th:if="${r.member != null}" th:href="@{/members/{id}(id=${r.member.id})}">Member</a>
+    <a class="btn alt" th:if="${r.client != null}" th:href="@{/clients/{id}(id=${r.client.id})}">Client</a>
     <a class="btn alt" th:if="${r.account != null}" th:href="@{/accounts/{id}(id=${r.account.id})}">Account</a>
+    <a class="btn alt" th:if="${r.project != null}" th:href="@{/projects/{id}(id=${r.project.id})}">Project</a>
   </div>
   <div class="receipt-slip">
     <div class="head">
@@ -17,18 +18,20 @@
     <dl class="kv" style="grid-template-columns: 110px 1fr">
       <dt>Date</dt><dd th:text="${#temporals.format(r.receiptDate, 'dd MMMM yyyy')}"></dd>
       <dt>Received from</dt><dd th:text="${r.payerName}"></dd>
-      <dt th:if="${r.member}">Member no</dt><dd th:if="${r.member}" th:text="${r.member.memberNo} + ' · ID ' + ${r.member.nationalId}"></dd>
+      <dt th:if="${r.client}">Client no</dt><dd th:if="${r.client}" th:text="${r.client.clientNo} + (${r.client.nationalId} != null ? ' · ID ' + ${r.client.nationalId} : '')"></dd>
       <dt>For</dt><dd th:text="${r.type.label} + (${r.months} != null ? ' — ' + ${r.months} + ' month(s)' : '')"></dd>
-      <dt th:if="${r.account}">Account</dt><dd th:if="${r.account}" th:text="${r.account.accountNo} + (${r.account.assetType} != null ? ' · ' + ${r.account.assetType.label} : '')"></dd>
+      <dt th:if="${r.account}">Account</dt><dd th:if="${r.account}" th:text="${r.project != null ? r.project.label : r.account.accountNo}"></dd>
       <dt>Paid by</dt><dd th:text="${r.paymentMethod} + (${r.reference} != null ? ' · ' + ${r.reference} : '')"></dd>
     </dl>
     <div class="amt" th:text="'USD ' + ${#numbers.formatDecimal(r.amount, 1, 'COMMA', 2, 'POINT')}"></div>
-    <th:block th:if="${r.account != null}">
-      <p th:if="${!r.account.loanStarted}" class="muted" style="text-align:center"
-         th:text="'Total deposited $' + ${#numbers.formatDecimal(r.account.totalDeposited, 1, 'COMMA', 2, 'POINT')} + (${r.account.minimumDeposit} != null ? ' of $' + ${#numbers.formatDecimal(r.account.minimumDeposit, 1, 'COMMA', 2, 'POINT')} + ' minimum' : '')"></p>
-      <p th:if="${r.account.loanStarted}" class="muted" style="text-align:center"
-         th:text="'Loan balance $' + ${#numbers.formatDecimal(r.account.loanBalance, 1, 'COMMA', 2, 'POINT')}"></p>
+    <th:block th:if="${r.project != null}">
+      <p th:if="${!r.project.loanStarted}" class="muted" style="text-align:center"
+         th:text="'Total deposited $' + ${#numbers.formatDecimal(r.project.totalDeposited, 1, 'COMMA', 2, 'POINT')} + (${r.project.minimumDeposit} != null ? ' of $' + ${#numbers.formatDecimal(r.project.minimumDeposit, 1, 'COMMA', 2, 'POINT')} + ' minimum' : '')"></p>
+      <p th:if="${r.project.loanStarted}" class="muted" style="text-align:center"
+         th:text="'Loan balance $' + ${#numbers.formatDecimal(r.project.loanBalance, 1, 'COMMA', 2, 'POINT')}"></p>
     </th:block>
+    <p th:if="${r.type.name() == 'ACCOUNT_OPENING'}" class="muted" style="text-align:center"
+       th:text="${r.account.active} ? 'Opening fee fully paid: account active' : 'Opening fee paid $' + ${r.account.openingFeePaid} + ' of $50; $' + ${r.account.openingFeeBalance} + ' outstanding'"></p>
     <p>Received by: <span th:text="${r.capturedBy}"></span></p>
     <p>Signature: ______________________</p>
   </div>

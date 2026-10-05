@@ -17,13 +17,14 @@ public class DataSeeder implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        seed("MRW", "Murehwa (Macheke)", "Murehwa", true);
-        seed("MRD", "Marondera", "Marondera", false);
+        // codes follow the existing account numbers (MRE2601ME, MDA2601ME, WED2601ME)
+        seed("MRE", "Murehwa (Macheke)", "Murehwa", true);
+        seed("MDA", "Marondera", "Marondera", false);
+        seed("WED", "Wedza", "Hwedza", false);
         seed("MTK", "Mutoko", "Mutoko", false);
         seed("MDZ", "Mudzi", "Mudzi", false);
         seed("GMZ", "Goromonzi", "Goromonzi", false);
         seed("UMP", "UMP", "Uzumba-Maramba-Pfungwe", false);
-        seed("HWZ", "Hwedza", "Hwedza", false);
     }
 
     private void seed(String code, String name, String district, boolean hq) {

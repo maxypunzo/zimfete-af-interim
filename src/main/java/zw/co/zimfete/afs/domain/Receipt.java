@@ -23,10 +23,14 @@ public class Receipt {
     private Branch branch;
 
     @ManyToOne
-    private Member member;
+    private Client client;
 
     @ManyToOne
     private AssetAccount account;
+
+    /** The project a deposit or repayment belongs to. */
+    @ManyToOne
+    private Project project;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -51,7 +55,7 @@ public class Receipt {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public String getPayerName() {
-        return member != null ? member.getFullName() : description;
+        return client != null ? client.getFullName() : description;
     }
 
     public Long getId() { return id; }
@@ -61,10 +65,12 @@ public class Receipt {
     public void setReceiptDate(LocalDate receiptDate) { this.receiptDate = receiptDate; }
     public Branch getBranch() { return branch; }
     public void setBranch(Branch branch) { this.branch = branch; }
-    public Member getMember() { return member; }
-    public void setMember(Member member) { this.member = member; }
+    public Client getClient() { return client; }
+    public void setClient(Client client) { this.client = client; }
     public AssetAccount getAccount() { return account; }
     public void setAccount(AssetAccount account) { this.account = account; }
+    public Project getProject() { return project; }
+    public void setProject(Project project) { this.project = project; }
     public ReceiptType getType() { return type; }
     public void setType(ReceiptType type) { this.type = type; }
     public BigDecimal getAmount() { return amount; }

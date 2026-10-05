@@ -6,18 +6,20 @@
     <a th:href="@{/register(tab='deposits', branchId=${branchId})}" th:classappend="${tab == 'deposits'} ? 'on'">Deposits</a>
     <a th:href="@{/register(tab='projects', branchId=${branchId})}" th:classappend="${tab == 'projects'} ? 'on'">Projects</a>
     <a th:href="@{/register(tab='loans', branchId=${branchId})}" th:classappend="${tab == 'loans'} ? 'on'">Loan book</a>
+    <a th:href="@{/register(tab='membership')}" th:classappend="${tab == 'membership'} ? 'on'">Membership</a>
     <a th:href="@{/register(tab='subs', branchId=${branchId})}" th:classappend="${tab == 'subs'} ? 'on'">Subscription arrears</a>
     <a style="margin-left:auto" th:href="@{/reports/register.xlsx}">⬇ Excel (all sheets)</a>
   </div>
 
-  <form class="inline card" method="get" th:action="@{/register}">
+  <form class="inline card" method="get" th:action="@{/register}" th:if="${tab != 'membership'}">
     <input type="hidden" name="tab" th:value="${tab}">
     <div><label>Branch</label><select th:replace="~{fragments :: branchFilter(${branchId}, 'All branches')}"></select></div>
     <th:block th:if="${tab == 'accounts' or tab == 'deposits'}">
       <div><label th:text="${tab == 'accounts'} ? 'Opened from' : 'Paid from'">From</label><input type="date" name="from" th:value="${from}"></div>
       <div><label>To</label><input type="date" name="to" th:value="${to}"></div>
     </th:block>
-    <div th:if="${tab == 'accounts' or tab == 'projects'}"><label>Status</label><select name="status"><option value="">All</option>
+    <div th:if="${tab == 'accounts'}"><label><input type="checkbox" name="view" value="inactive" th:checked="${view == 'inactive'}"> Only inactive (opening fee due)</label></div>
+    <div th:if="${tab == 'projects'}"><label>Status</label><select name="status"><option value="">All</option>
       <option th:each="s : ${statuses}" th:value="${s}" th:text="${s.label}" th:selected="${s == status}"></option></select></div>
     <div th:if="${tab == 'deposits'}"><label>Asset</label><select name="assetType"><option value="">All</option>
       <option th:each="t : ${assetTypes}" th:value="${t}" th:text="${t.label}" th:selected="${t == assetType}"></option></select></div>
@@ -36,20 +38,19 @@
     </div>
     <h2>Accounts</h2>
     <div class="table-wrap"><table>
-      <thead><tr><th>Account</th><th>Opened</th><th>Opened by</th><th>Branch</th><th>Member</th><th>ID</th><th>Ward</th><th>Asset</th><th class="r">Quotation</th><th class="r">Deposited</th><th>Status</th></tr></thead>
+      <thead><tr><th>Account</th><th>Opened</th><th>Opened by</th><th>Branch</th><th>Client</th><th>Phone</th><th>Ward</th><th>Member?</th><th class="r">Opening fee paid</th><th>Status</th></tr></thead>
       <tbody>
       <tr th:each="a : ${accounts}">
         <td><a th:href="@{/accounts/{id}(id=${a.id})}" th:text="${a.accountNo}"></a></td>
         <td th:text="${#temporals.format(a.openedDate, 'dd/MM/yyyy')}"></td>
         <td th:text="${a.openedBy}"></td>
         <td th:text="${a.branch.name}"></td>
-        <td th:text="${a.member.fullName}"></td>
-        <td th:text="${a.member.nationalId}"></td>
-        <td th:text="${a.member.ward}"></td>
-        <td th:text="${a.assetType != null ? a.assetType.label : '-'}"></td>
-        <td class="r" th:text="${a.quotationCost != null ? #numbers.formatDecimal(a.quotationCost, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
-        <td class="r" th:text="${#numbers.formatDecimal(a.totalDeposited, 1, 'COMMA', 2, 'POINT')}"></td>
-        <td><span th:replace="~{fragments :: status(${a})}"></span></td>
+        <td th:text="${a.client.fullName}"></td>
+        <td th:text="${a.client.phone}"></td>
+        <td th:text="${a.client.ward}"></td>
+        <td th:text="${a.client.saccoMember} ? ${a.client.category.shortLabel} : ''"></td>
+        <td class="r" th:text="${#numbers.formatDecimal(a.openingFeePaid, 1, 'COMMA', 2, 'POINT')}"></td>
+        <td th:text="${a.statusLabel}" th:classappend="${!a.active} ? 'red'"></td>
       </tr>
       </tbody>
     </table></div>
@@ -58,18 +59,18 @@
   <!-- DEPOSITS -->
   <th:block th:if="${tab == 'deposits'}">
     <div class="table-wrap"><table>
-      <thead><tr><th>Date</th><th>Receipt</th><th>Branch</th><th>Member</th><th>ID</th><th>Ward</th><th>Account</th><th>Asset</th><th class="r">Quotation</th><th class="r">Amount</th></tr></thead>
+      <thead><tr><th>Date</th><th>Receipt</th><th>Branch</th><th>Client</th><th>Phone</th><th>Ward</th><th>Account</th><th>Project</th><th class="r">Quotation</th><th class="r">Amount</th></tr></thead>
       <tbody>
       <tr th:each="r : ${deposits}">
         <td th:text="${#temporals.format(r.receiptDate, 'dd/MM/yyyy')}"></td>
         <td><a th:href="@{/receipts/{id}(id=${r.id})}" th:text="${r.receiptNo}"></a></td>
         <td th:text="${r.branch.name}"></td>
-        <td th:text="${r.member.fullName}"></td>
-        <td th:text="${r.member.nationalId}"></td>
-        <td th:text="${r.member.ward}"></td>
+        <td th:text="${r.client.fullName}"></td>
+        <td th:text="${r.client.phone}"></td>
+        <td th:text="${r.client.ward}"></td>
         <td><a th:href="@{/accounts/{id}(id=${r.account.id})}" th:text="${r.account.accountNo}"></a></td>
-        <td th:text="${r.account.assetType != null ? r.account.assetType.label : '-'}"></td>
-        <td class="r" th:text="${r.account.quotationCost != null ? #numbers.formatDecimal(r.account.quotationCost, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
+        <td><a th:href="@{/projects/{id}(id=${r.project.id})}" th:text="${r.project.assetLabel}"></a></td>
+        <td class="r" th:text="${r.project.quotationCost != null ? #numbers.formatDecimal(r.project.quotationCost, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
         <td class="r" th:text="${#numbers.formatDecimal(r.amount, 1, 'COMMA', 2, 'POINT')}"></td>
       </tr>
       <tr class="total"><td colspan="9" th:text="${#lists.size(deposits)} + ' deposit(s)'"></td><td class="r" th:text="${#numbers.formatDecimal(total, 1, 'COMMA', 2, 'POINT')}"></td></tr>
@@ -81,24 +82,25 @@
   <th:block th:if="${tab == 'projects'}">
     <p class="muted" th:text="${#lists.size(projects)} + ' project(s)'"></p>
     <div class="table-wrap"><table>
-      <thead><tr><th>Account</th><th>Branch</th><th>Member</th><th>Asset</th><th class="r">Quotation</th><th class="r">Deposited</th><th>Progress</th><th>Status</th>
-        <th>Target</th><th>Min. reached</th><th>Started</th><th>Completed</th><th class="r">Days</th></tr></thead>
+      <thead><tr><th>Project</th><th>Branch</th><th>Client</th><th class="r">Cost</th><th class="r">Deposited</th><th>Progress</th><th>Status</th>
+        <th>Target</th><th>Min. reached</th><th>Approved</th><th>Started</th><th class="r">Disbursed</th><th>Completed</th><th class="r">Days</th></tr></thead>
       <tbody>
-      <tr th:each="a : ${projects}">
-        <td><a th:href="@{/accounts/{id}(id=${a.id})}" th:text="${a.accountNo}"></a></td>
-        <td th:text="${a.branch.name}"></td>
-        <td th:text="${a.member.fullName}"></td>
-        <td th:text="${a.assetType != null ? a.assetType.label : '-'}"></td>
-        <td class="r" th:text="${a.quotationCost != null ? #numbers.formatDecimal(a.quotationCost, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
-        <td class="r" th:text="${#numbers.formatDecimal(a.totalDeposited, 1, 'COMMA', 2, 'POINT')}"></td>
-        <td><div th:replace="~{fragments :: progress(${a})}"></div><span class="muted" th:text="${a.depositProgress} + '%'"></span></td>
-        <td><span th:replace="~{fragments :: status(${a})}"></span></td>
-        <td th:classappend="${a.targetDate != null and a.targetDate.isBefore(today) and a.projectStartDate == null} ? 'red'"
-            th:text="${a.targetDate != null ? #temporals.format(a.targetDate, 'dd/MM/yyyy') : ''}"></td>
-        <td th:text="${a.thresholdReachedDate != null ? #temporals.format(a.thresholdReachedDate, 'dd/MM/yyyy') : ''}"></td>
-        <td th:text="${a.projectStartDate != null ? #temporals.format(a.projectStartDate, 'dd/MM/yyyy') : ''}"></td>
-        <td th:text="${a.completionDate != null ? #temporals.format(a.completionDate, 'dd/MM/yyyy') : ''}"></td>
-        <td class="r" th:text="${a.daysToComplete}"></td>
+      <tr th:each="p : ${projects}">
+        <td><a th:href="@{/projects/{id}(id=${p.id})}" th:text="${p.label}"></a></td>
+        <td th:text="${p.branch.name}"></td>
+        <td th:text="${p.client.fullName}"></td>
+        <td class="r" th:text="${p.quotationCost != null ? #numbers.formatDecimal(p.quotationCost, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
+        <td class="r" th:text="${#numbers.formatDecimal(p.totalDeposited, 1, 'COMMA', 2, 'POINT')}"></td>
+        <td><div th:replace="~{fragments :: progress(${p})}"></div><span class="muted" th:text="${p.depositProgress} + '%'"></span></td>
+        <td><span th:replace="~{fragments :: status(${p})}"></span></td>
+        <td th:classappend="${p.targetDate != null and p.targetDate.isBefore(today) and p.status.preStart} ? 'red'"
+            th:text="${p.targetDate != null ? #temporals.format(p.targetDate, 'dd/MM/yyyy') : ''}"></td>
+        <td th:text="${p.thresholdReachedDate != null ? #temporals.format(p.thresholdReachedDate, 'dd/MM/yyyy') : ''}"></td>
+        <td th:text="${p.approvedDate != null ? #temporals.format(p.approvedDate, 'dd/MM/yyyy') : ''}"></td>
+        <td th:text="${p.projectStartDate != null ? #temporals.format(p.projectStartDate, 'dd/MM/yyyy') : ''}"></td>
+        <td class="r" th:text="${p.disbursedAmount != null ? #numbers.formatDecimal(p.disbursedAmount, 1, 'COMMA', 2, 'POINT') : ''}"></td>
+        <td th:text="${p.completionDate != null ? #temporals.format(p.completionDate, 'dd/MM/yyyy') : ''}"></td>
+        <td class="r" th:text="${p.daysToComplete}"></td>
       </tr>
       </tbody>
     </table></div>
@@ -111,15 +113,16 @@
       <div class="kpi warn"><div class="n" th:text="'$' + ${#numbers.formatDecimal(arrears, 1, 'COMMA', 2, 'POINT')}"></div><div class="l">In arrears</div></div>
     </div>
     <div class="table-wrap" style="margin-top:14px"><table>
-      <thead><tr><th>Account</th><th>Branch</th><th>Member</th><th>Phone</th><th>Started</th><th class="r">Total loan</th><th class="r">Months</th><th class="r">Instalment</th><th class="r">Repaid</th><th class="r">Balance</th><th class="r">Arrears</th></tr></thead>
+      <thead><tr><th>Project</th><th>Branch</th><th>Client</th><th>Phone</th><th>Started</th><th class="r">Total loan</th><th class="r">Rate</th><th class="r">Months</th><th class="r">Instalment</th><th class="r">Repaid</th><th class="r">Balance</th><th class="r">Arrears</th></tr></thead>
       <tbody>
       <tr th:each="a : ${loans}">
-        <td><a th:href="@{/accounts/{id}(id=${a.id})}" th:text="${a.accountNo}"></a></td>
+        <td><a th:href="@{/projects/{id}(id=${a.id})}" th:text="${a.label}"></a></td>
         <td th:text="${a.branch.name}"></td>
-        <td th:text="${a.member.fullName}"></td>
-        <td th:text="${a.member.phone}"></td>
+        <td th:text="${a.client.fullName}"></td>
+        <td th:text="${a.client.phone}"></td>
         <td th:text="${#temporals.format(a.projectStartDate, 'dd/MM/yyyy')}"></td>
         <td class="r" th:text="${#numbers.formatDecimal(a.loanTerms.totalRepayable, 1, 'COMMA', 2, 'POINT')}"></td>
+        <td class="r" th:text="${a.interestRate} + '%'"></td>
         <td class="r" th:text="${a.repaymentMonths}"></td>
         <td class="r" th:text="${#numbers.formatDecimal(a.loanTerms.monthlyInstalment, 1, 'COMMA', 2, 'POINT')}"></td>
         <td class="r" th:text="${#numbers.formatDecimal(a.totalRepaid, 1, 'COMMA', 2, 'POINT')}"></td>
@@ -130,20 +133,37 @@
     </table></div>
   </th:block>
 
+  <!-- MEMBERSHIP -->
+  <th:block th:if="${tab == 'membership'}">
+    <p class="muted">SACCO members (veteran community) per district and category: who will be eligible for the grant.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>District</th><th class="r" th:each="c : ${veteranCategories}" th:text="${c.label}"></th><th class="r">Total</th></tr></thead>
+      <tbody>
+      <tr th:each="m : ${membership}">
+        <td><a th:href="@{/clients(branchId=${m.branch.id}, members=true)}" th:text="${m.branch.label}"></a></td>
+        <td class="r" th:each="c : ${veteranCategories}">
+          <a th:href="@{/clients(branchId=${m.branch.id}, members=true, category=${c})}" th:text="${m.byCategory.get(c)}"></a></td>
+        <td class="r"><strong th:text="${m.total}"></strong></td>
+      </tr>
+      </tbody>
+    </table></div>
+  </th:block>
+
   <!-- SUBSCRIPTIONS -->
   <th:block th:if="${tab == 'subs'}">
-    <p class="muted" th:text="${#lists.size(arrearsMembers)} + ' member(s) owe monthly subscriptions ($1/month) up to ' + ${#temporals.format(today, 'MMMM yyyy')}"></p>
+    <p class="muted" th:text="${#lists.size(arrearsMembers)} + ' SACCO member(s) owe monthly subscriptions ($1/month) up to ' + ${#temporals.format(today, 'MMMM yyyy')}"></p>
     <div class="table-wrap"><table>
-      <thead><tr><th>Member</th><th>Name</th><th>Phone</th><th>Branch</th><th>Paid to</th><th class="r">Months owed</th><th></th></tr></thead>
+      <thead><tr><th>Client</th><th>Name</th><th>Phone</th><th>Branch</th><th>Category</th><th>Paid to</th><th class="r">Months owed</th><th></th></tr></thead>
       <tbody>
       <tr th:each="m : ${arrearsMembers}">
-        <td><a th:href="@{/members/{id}(id=${m.id})}" th:text="${m.memberNo}"></a></td>
+        <td><a th:href="@{/clients/{id}(id=${m.id})}" th:text="${m.clientNo}"></a></td>
         <td th:text="${m.fullName}"></td>
         <td th:text="${m.phone}"></td>
         <td th:text="${m.branch.name}"></td>
+        <td th:text="${m.category.shortLabel}"></td>
         <td th:text="${m.subsPaidUntil != null ? #temporals.format(m.subsPaidUntil, 'MMM yyyy') : 'never'}"></td>
         <td class="r red" th:text="${m.subsMonthsOwed(today)}"></td>
-        <td><a class="btn sm" th:href="@{/receipts/new(memberId=${m.id}, type='SUBSCRIPTION')}">Receipt</a></td>
+        <td><a class="btn sm" th:href="@{/receipts/new(clientId=${m.id}, type='SUBSCRIPTION')}">Receipt</a></td>
       </tr>
       </tbody>
     </table></div>

@@ -1,0 +1,26 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('New project', 'register', ~{::section})}">
+<section>
+  <h1 th:text="'Add a project to ' + ${a.accountNo} + ' — ' + ${a.client.fullName}"></h1>
+  <form method="post" th:action="@{/accounts/{id}/projects/new(id=${a.id})}" th:object="${form}">
+    <fieldset><legend>Project / asset</legend>
+      <div class="form-grid">
+        <div><label>Asset type</label><select th:field="*{assetType}"><option value="">- not yet known -</option>
+          <option th:each="t : ${assetTypes}" th:value="${t}" th:text="${t.label}"></option></select></div>
+        <div><label>Description</label><input th:field="*{assetDescription}"></div>
+        <div><label>Supplier</label><input th:field="*{supplier}"></div>
+        <div><label>Quotation / project cost ($)</label><input type="number" step="0.01" min="0" th:field="*{quotationCost}" ></div>
+        <div><label>Minimum deposit %</label><input type="number" step="0.01" min="0" max="100" th:field="*{minDepositPercent}"></div>
+        <div><label>Interest % (once)</label><input type="number" step="0.01" min="0" max="100" th:field="*{interestPercent}" th:placeholder="${defaultInterest}" ></div>
+        <div><label>Repayment months (planned)</label><input type="number" min="1" th:field="*{repaymentMonths}" ></div>
+        <div><label>Target start date</label><input type="date" th:field="*{targetDate}"></div>
+        <div><label>First deposit today ($)</label><input type="number" step="0.01" min="0" th:field="*{initialDeposit}"></div>
+        <div><label>Deposit receipt no</label><input th:field="*{depositReceiptNo}" placeholder="blank = auto"></div>
+        <div><label>Payment method</label><select th:field="*{paymentMethod}"><option th:each="p : ${paymentMethods}" th:value="${p}" th:text="${p}"></option></select></div>
+        <div><label>Captured by</label><input th:field="*{capturedBy}"></div>
+      </div>
+      <div style="margin-top:10px"><label>Notes</label><textarea th:field="*{notes}" rows="2"></textarea></div>
+    </fieldset>
+    <div class="actions"><button type="submit" class="orange">Add project</button><a class="btn alt" th:href="@{/accounts/{id}(id=${a.id})}">Cancel</a></div>
+  </form>
+</section>
+</html>

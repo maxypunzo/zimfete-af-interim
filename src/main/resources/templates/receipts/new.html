@@ -1,23 +1,27 @@
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Receipt', 'receipt', ~{::section})}">
 <section>
   <h1>Receipt a payment</h1>
-  <p class="sub">Joining fee, subscriptions, deposits and loan repayments. ($50 account opening is done from the member's page with "Open account".)</p>
+  <p class="sub">Joining fee and subscriptions (SACCO members only), account opening fee (or its balance), project deposits
+    and loan repayments.</p>
   <form method="post" th:action="@{/receipts/new}" th:object="${form}">
-    <input type="hidden" th:field="*{memberId}">
+    <input type="hidden" th:field="*{clientId}">
     <fieldset><legend>Who paid</legend>
-      <div th:if="${member != null}">
-        <p><strong th:text="${member.fullName}"></strong> — <span th:text="${member.memberNo}"></span>, ID <span th:text="${member.nationalId}"></span>
+      <div th:if="${client != null}">
+        <p><strong th:text="${client.fullName}"></strong> — <span th:text="${client.clientNo}"></span>
+          <span th:text="${client.saccoMember} ? ' · SACCO member (' + ${client.category.label} + ')' : ' · not a SACCO member'"></span>
           <a class="btn sm alt" th:href="@{/receipts/new}">change</a></p>
-        <div class="form-grid" th:if="${!#lists.isEmpty(memberAccounts)}">
-          <div><label>Asset finance account (for deposits / repayments)</label>
+        <div class="form-grid">
+          <div th:if="${!#lists.isEmpty(clientProjects)}"><label>Project (for deposits / repayments)</label>
+            <select th:field="*{projectId}"><option value="">- none -</option>
+              <option th:each="p : ${clientProjects}" th:value="${p.id}" th:text="${p.label} + ' · ' + ${p.status.label}"></option></select></div>
+          <div th:if="${!#lists.isEmpty(clientAccounts)}"><label>Account (for the opening fee)</label>
             <select th:field="*{accountId}"><option value="">- none -</option>
-              <option th:each="a : ${memberAccounts}" th:value="${a.id}"
-                      th:text="${a.accountNo} + ' · ' + (${a.assetType} != null ? ${a.assetType.label} : 'asset not set') + ' · ' + ${a.status.label}"></option></select></div>
+              <option th:each="a : ${clientAccounts}" th:value="${a.id}" th:text="${a.accountNo} + ' · ' + ${a.statusLabel}"></option></select></div>
         </div>
       </div>
-      <div th:if="${member == null}" class="form-grid">
-        <div><label>Member no, national ID or account no</label><input name="lookup" th:value="${param.lookup}" autofocus required></div>
-        <div class="muted" style="align-self:end">Not registered yet? <a th:href="@{/members/new}">Register the member</a> — fees are receipted there.</div>
+      <div th:if="${client == null}" class="form-grid">
+        <div><label>Client no, national ID or account no</label><input name="lookup" th:value="${param.lookup}" autofocus required></div>
+        <div class="muted" style="align-self:end">New person? <a th:href="@{/clients/new}">Register them</a> — fees are receipted there.</div>
       </div>
     </fieldset>
     <fieldset><legend>Payment</legend>
@@ -27,7 +31,7 @@
         <div><label>Amount ($)</label><input type="number" step="0.01" min="0.01" th:field="*{amount}" required></div>
         <div><label>Months (subscriptions only)</label><input type="number" min="1" th:field="*{months}" placeholder="from amount"></div>
         <div><label>Date</label><input type="date" th:field="*{receiptDate}" required></div>
-        <div><label>Branch</label><select th:field="*{branchId}"><option value="">(member's branch)</option>
+        <div><label>Branch</label><select th:field="*{branchId}"><option value="">(client's branch)</option>
           <option th:each="b : ${branches}" th:value="${b.id}" th:text="${b.label}"></option></select></div>
         <div><label>Receipt book no</label><input th:field="*{receiptNo}" placeholder="blank = auto"></div>
         <div><label>Payment method</label><select th:field="*{paymentMethod}"><option th:each="p : ${paymentMethods}" th:value="${p}" th:text="${p}"></option></select></div>

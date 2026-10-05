@@ -1,0 +1,89 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page(${client.fullName}, 'clients', ~{::section})}">
+<section>
+  <h1><span th:text="${client.fullName} + ' — ' + ${client.clientNo}"></span>
+    <span class="badge s-COMPLETED" th:if="${client.saccoMember}">SACCO member</span></h1>
+  <div class="actions">
+    <a class="btn orange" th:href="@{/clients/{id}/open-account(id=${client.id})}">+ Open asset finance account</a>
+    <a class="btn" th:if="${!client.saccoMember}" th:href="@{/clients/{id}/enrol(id=${client.id})}">Enrol as SACCO member</a>
+    <a class="btn" th:if="${client.saccoMember}" th:href="@{/receipts/new(clientId=${client.id}, type='SUBSCRIPTION')}">Receipt subscription</a>
+    <a class="btn" th:if="${client.saccoMember and !client.joiningFeePaid}" th:href="@{/receipts/new(clientId=${client.id}, type='JOINING_FEE')}">Receipt joining fee</a>
+    <a class="btn alt" th:href="@{/clients/{id}/edit(id=${client.id})}">Edit details</a>
+  </div>
+  <div class="grid g2">
+    <div class="card"><dl class="kv">
+      <dt>National ID</dt><dd th:text="${client.nationalId} ?: '-'"></dd>
+      <dt>Gender</dt><dd th:text="${client.gender} ?: '-'"></dd>
+      <dt>Phone</dt><dd th:text="${client.phone} ?: '-'"></dd>
+      <dt>Village / ward</dt><dd th:text="${(client.village ?: '-') + ' / ' + (client.ward ?: '-')}"></dd>
+      <dt>District</dt><dd th:text="${client.district}"></dd>
+      <dt>Branch</dt><dd th:text="${client.branch.label}"></dd>
+      <dt>Registered</dt><dd th:text="${#temporals.format(client.dateRegistered, 'dd MMM yyyy')}"></dd>
+      <dt>Next of kin</dt><dd th:text="${client.nextOfKin} ?: '-'"></dd>
+      <dt>Notes</dt><dd th:text="${client.notes} ?: '-'"></dd>
+    </dl></div>
+    <div class="card">
+      <h2 style="margin-top:0">Membership</h2>
+      <dl class="kv">
+        <dt>Category</dt><dd th:text="${client.category.label}"></dd>
+        <dt th:if="${client.veteranRef}">Vet / WC reg no</dt><dd th:if="${client.veteranRef}" th:text="${client.veteranRef}"></dd>
+        <dt th:if="${client.relatedVeteran}">Related veteran</dt><dd th:if="${client.relatedVeteran}" th:text="${client.relatedVeteran}"></dd>
+        <dt>SACCO member</dt><dd th:text="${client.saccoMember} ? 'Yes, since ' + ${#temporals.format(client.memberSince, 'dd MMM yyyy')} : 'No (asset finance client only)'"></dd>
+        <th:block th:if="${client.saccoMember}">
+          <dt>Joining fee</dt><dd th:text="${client.joiningFeePaid} ? 'Paid' : 'Not paid'" th:classappend="${!client.joiningFeePaid} ? 'red'"></dd>
+          <dt>Subscriptions paid to</dt><dd th:text="${client.subsPaidUntil != null ? #temporals.format(client.subsPaidUntil, 'MMMM yyyy') : 'None paid'}"></dd>
+          <dt>Months owed</dt><dd th:text="${monthsOwed} + ' ($' + ${monthsOwed} + ')'" th:classappend="${monthsOwed > 0} ? 'red'"></dd>
+        </th:block>
+      </dl>
+    </div>
+  </div>
+
+  <h2>Asset finance accounts</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Account</th><th>Opened</th><th>Opened by</th><th class="r">Opening fee paid</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    <tr th:each="a : ${accounts}">
+      <td><a th:href="@{/accounts/{id}(id=${a.id})}" th:text="${a.accountNo}"></a></td>
+      <td th:text="${#temporals.format(a.openedDate, 'dd/MM/yyyy')}"></td>
+      <td th:text="${a.openedBy}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(a.openingFeePaid, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td th:text="${a.statusLabel}" th:classappend="${!a.active} ? 'red'"></td>
+      <td><a class="btn sm" th:if="${!a.active and !a.closed}" th:href="@{/receipts/new(accountId=${a.id}, type='ACCOUNT_OPENING')}">Receipt opening fee balance</a></td>
+    </tr>
+    <tr th:if="${#lists.isEmpty(accounts)}"><td colspan="6" class="muted">No asset finance account.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>Projects</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Account</th><th>Asset</th><th class="r">Cost</th><th class="r">Deposited</th><th>Progress</th><th>Status</th><th class="r">Loan balance</th><th></th></tr></thead>
+    <tbody>
+    <tr th:each="p : ${projects}">
+      <td th:text="${p.account.accountNo}"></td>
+      <td><a th:href="@{/projects/{id}(id=${p.id})}" th:text="${p.assetLabel}"></a></td>
+      <td class="r" th:text="${p.quotationCost != null ? #numbers.formatDecimal(p.quotationCost, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(p.totalDeposited, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td><div th:replace="~{fragments :: progress(${p})}"></div></td>
+      <td><span th:replace="~{fragments :: status(${p})}"></span></td>
+      <td class="r" th:text="${p.loanBalance != null ? #numbers.formatDecimal(p.loanBalance, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
+      <td><a class="btn sm" th:if="${p.status.preStart or p.loanStarted}" th:href="@{/receipts/new(projectId=${p.id})}" th:text="${p.loanStarted} ? 'Repayment' : 'Deposit'"></a></td>
+    </tr>
+    <tr th:if="${#lists.isEmpty(projects)}"><td colspan="8" class="muted">No projects.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>Receipts</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Receipt</th><th>Type</th><th>Account / project</th><th class="r">Amount</th><th>Captured by</th></tr></thead>
+    <tbody>
+    <tr th:each="r : ${receipts}" th:classappend="${r.reversed} ? 'reversed'">
+      <td th:text="${#temporals.format(r.receiptDate, 'dd/MM/yyyy')}"></td>
+      <td><a th:href="@{/receipts/{id}(id=${r.id})}" th:text="${r.receiptNo}"></a></td>
+      <td th:text="${r.type.label} + (${r.months} != null ? ' (' + ${r.months} + ' mo)' : '')"></td>
+      <td th:text="${r.project != null ? r.project.label : (r.account != null ? r.account.accountNo : '')}"></td>
+      <td class="r" th:text="${#numbers.formatDecimal(r.amount, 1, 'COMMA', 2, 'POINT')}"></td>
+      <td th:text="${r.capturedBy}"></td>
+    </tr>
+    </tbody>
+  </table></div>
+</section>
+</html>

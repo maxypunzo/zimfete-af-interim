@@ -1,0 +1,26 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Edit client', 'clients', ~{::section})}">
+<section>
+  <h1>Edit client details</h1>
+  <form method="post" th:action="@{/clients/{id}/edit(id=${clientId})}" th:object="${client}">
+    <fieldset><legend>Client details</legend>
+      <div class="form-grid">
+        <div><label>First name(s)</label><input th:field="*{firstName}" required></div>
+        <div><label>Surname</label><input th:field="*{surname}"></div>
+        <div><label>National ID</label><input th:field="*{nationalId}"></div>
+        <div><label>Gender</label><select th:field="*{gender}"><option value="">-</option><option value="Female">Female</option><option value="Male">Male</option></select></div>
+        <div><label>Phone</label><input th:field="*{phone}"></div>
+        <div><label>Village / farm / plot</label><input th:field="*{village}"></div>
+        <div><label>Ward</label><input th:field="*{ward}"></div>
+        <div><label>District</label><input th:field="*{district}"></div>
+        <div><label>Next of kin</label><input th:field="*{nextOfKin}"></div>
+        <div><label>Category</label><select th:field="*{category}">
+          <option th:each="c : ${categories}" th:value="${c}" th:text="${c.label}"></option></select></div>
+        <div><label>Vet / WC registration no</label><input th:field="*{veteranRef}"></div>
+        <div><label>Related veteran</label><input th:field="*{relatedVeteran}"></div>
+      </div>
+      <div style="margin-top:10px"><label>Notes</label><textarea th:field="*{notes}" rows="3"></textarea></div>
+    </fieldset>
+    <div class="actions"><button type="submit">Save</button><a class="btn alt" th:href="@{/clients/{id}(id=${clientId})}">Cancel</a></div>
+  </form>
+</section>
+</html>

@@ -27,7 +27,7 @@
           <td th:text="${t.label}"></td><td class="r" th:text="${r.countByType.get(t)}"></td>
           <td class="r" th:text="${#numbers.formatDecimal(r.byType.get(t), 1, 'COMMA', 2, 'POINT')}"></td></tr>
         <tr class="total"><td colspan="2">Deposits &amp; repayments (client funds)</td><td class="r" th:text="${#numbers.formatDecimal(r.collectionsTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
-        <tr class="total"><td colspan="2">TOTAL RECEIVED</td><td class="r" th:text="${#numbers.formatDecimal(r.receiptsTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr class="total"><td colspan="2">TOTAL INFLOW</td><td class="r" th:text="${#numbers.formatDecimal(r.receiptsTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
         <tr><td colspan="3" class="muted">By payment method:
           <span th:each="e, s : ${r.byPaymentMethod}" th:text="${e.key} + ' $' + ${#numbers.formatDecimal(e.value, 1, 'COMMA', 2, 'POINT')} + (${s.last} ? '' : ' · ')"></span></td></tr>
         </tbody>
@@ -35,13 +35,18 @@
     </div>
     <div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Expenditure</th><th class="r">Amount ($)</th></tr></thead>
+        <thead><tr><th>Outflow</th><th class="r">Amount ($)</th></tr></thead>
         <tbody>
         <tr th:each="e : ${r.expensesByCategory}"><td th:text="${e.key}"></td><td class="r" th:text="${#numbers.formatDecimal(e.value, 1, 'COMMA', 2, 'POINT')}"></td></tr>
         <tr th:if="${#maps.isEmpty(r.expensesByCategory)}"><td colspan="2" class="muted">No expenditure.</td></tr>
-        <tr class="total"><td>TOTAL SPENT</td><td class="r" th:text="${#numbers.formatDecimal(r.expensesTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
-        <tr class="total"><td>NET CASH (received − spent)</td><td class="r" th:text="${#numbers.formatDecimal(r.net, 1, 'COMMA', 2, 'POINT')}"></td></tr>
-        <tr><td>New members</td><td class="r" th:text="${r.newMembers}"></td></tr>
+        <tr class="total"><td>Operating expenditure</td><td class="r" th:text="${#numbers.formatDecimal(r.expensesTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr th:each="p : ${r.disbursements}"><td th:text="'Loan (project): ' + ${p.client.fullName} + ', ' + ${p.assetLabel}"></td>
+          <td class="r" th:text="${#numbers.formatDecimal(p.disbursedAmount, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr class="total"><td>Funds disbursed to projects</td><td class="r" th:text="${#numbers.formatDecimal(r.disbursementsTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr class="total"><td>TOTAL OUTFLOW</td><td class="r" th:text="${#numbers.formatDecimal(r.outflowTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr class="total"><td>NET CASH (inflow − outflow)</td><td class="r" th:classappend="${r.net.signum() < 0} ? 'red'" th:text="${#numbers.formatDecimal(r.net, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr><td>New SACCO members</td><td class="r" th:text="${r.newMembers}"></td></tr>
+        <tr><td>New clients</td><td class="r" th:text="${r.newClients}"></td></tr>
         <tr><td>Accounts opened</td><td class="r" th:text="${r.accountsOpened}"></td></tr>
         </tbody>
       </table></div>
@@ -50,7 +55,7 @@
 
   <h2>Receipts in detail</h2>
   <div class="table-wrap"><table>
-    <thead><tr><th>Date</th><th>Receipt</th><th>Branch</th><th>Paid by</th><th>Type</th><th>Account / asset</th><th class="r">Amount</th></tr></thead>
+    <thead><tr><th>Date</th><th>Receipt</th><th>Branch</th><th>Paid by</th><th>Type</th><th>Account / project</th><th class="r">Amount</th></tr></thead>
     <tbody>
     <tr th:each="x : ${r.receipts}">
       <td th:text="${#temporals.format(x.receiptDate, 'dd/MM')}"></td>
@@ -58,7 +63,7 @@
       <td th:text="${x.branch.name}"></td>
       <td th:text="${x.payerName}"></td>
       <td th:text="${x.type.label}"></td>
-      <td th:text="${x.account != null ? x.account.accountNo + (x.account.assetType != null ? ' · ' + x.account.assetType.label : '') : ''}"></td>
+      <td th:text="${x.project != null ? x.project.label : (x.account != null ? x.account.accountNo : '')}"></td>
       <td class="r" th:text="${#numbers.formatDecimal(x.amount, 1, 'COMMA', 2, 'POINT')}"></td>
     </tr>
     <tr th:if="${#lists.isEmpty(r.receipts)}"><td colspan="7" class="muted">No receipts.</td></tr>

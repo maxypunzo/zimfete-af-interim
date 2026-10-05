@@ -41,26 +41,31 @@ public class ExcelImportService {
             DateTimeFormatter.ofPattern("d.M.yyyy"), DateTimeFormatter.ISO_LOCAL_DATE, DateTimeFormatter.ofPattern("d/M/yy"));
 
     private final BranchRepository branches;
-    private final MemberRepository members;
+    private final ClientRepository clients;
     private final AssetAccountRepository accounts;
+    private final ProjectRepository projects;
     private final ReceiptRepository receipts;
     private final ExpenseRepository expenses;
-    private final MemberService memberService;
+    private final ClientService clientService;
     private final AccountService accountService;
+    private final ProjectService projectService;
     private final ReceiptService receiptService;
     private final TransactionTemplate tx;
     private final DataFormatter formatter = new DataFormatter();
 
-    public ExcelImportService(BranchRepository branches, MemberRepository members, AssetAccountRepository accounts,
-                              ReceiptRepository receipts, ExpenseRepository expenses, MemberService memberService,
-                              AccountService accountService, ReceiptService receiptService, PlatformTransactionManager tm) {
+    public ExcelImportService(BranchRepository branches, ClientRepository clients, AssetAccountRepository accounts,
+                              ProjectRepository projects, ReceiptRepository receipts, ExpenseRepository expenses,
+                              ClientService clientService, AccountService accountService, ProjectService projectService,
+                              ReceiptService receiptService, PlatformTransactionManager tm) {
         this.branches = branches;
-        this.members = members;
+        this.clients = clients;
         this.accounts = accounts;
+        this.projects = projects;
         this.receipts = receipts;
         this.expenses = expenses;
-        this.memberService = memberService;
+        this.clientService = clientService;
         this.accountService = accountService;
+        this.projectService = projectService;
         this.receiptService = receiptService;
         this.tx = new TransactionTemplate(tm);
     }
@@ -112,63 +117,69 @@ public class ExcelImportService {
         if (receipts.existsByBranchIdAndReceiptNoIgnoreCase(branch.getId(), receiptNo)) {
             return new RowResult("Receipts", n, Outcome.SKIPPED, "Receipt " + receiptNo + " already captured.");
         }
+        if (amount == null || amount.signum() <= 0) throw new BusinessException("Amount is missing.");
         String clerk = text(row, c.get("clerk"));
         String method = Optional.ofNullable(text(row, c.get("payment method"))).orElse("Cash");
+        String categoryText = text(row, c.get("category"));
+        MemberCategory category = MemberCategory.parse(categoryText);
+        if (categoryText != null && category == null) throw new BusinessException("Category '" + categoryText + "' is not recognised.");
 
-        // --- find or create the member
-        String nid = MemberService.normaliseId(text(row, c.get("national id")));
+        // --- find or register the client
+        String nid = ClientService.normaliseId(text(row, c.get("national id")));
         String accountNo = upper(text(row, c.get("account no")));
-        Member member = null;
-        if (nid != null) member = members.findByNationalIdIgnoreCase(nid).orElse(null);
         AssetAccount account = accountNo == null ? null : accounts.findByAccountNoIgnoreCase(accountNo).orElse(null);
-        if (member == null && account != null) member = account.getMember();
-        boolean created = false;
-        if (member == null) {
-            if (nid == null) throw new BusinessException("National ID is required for a member's first receipt.");
+        Client client = nid == null ? null : clients.findByNationalIdIgnoreCase(nid).orElse(null);
+        if (client == null && account != null) client = account.getClient();
+        String first = text(row, c.get("first name"));
+        String surname = text(row, c.get("surname"));
+        if (client == null && first != null) {
+            List<Client> byName = clients.findByBranchAndFullName(branch.getId(), (first + " " + Optional.ofNullable(surname).orElse("")).trim());
+            if (byName.size() == 1) client = byName.get(0);
+            if (byName.size() > 1) throw new BusinessException(byName.size() + " clients are called " + first + " " + surname + ": fill in the National ID or Account No.");
+        }
+        String note = "";
+        if (client == null) {
+            if (first == null) throw new BusinessException("New client: First Name is needed (and National ID if known).");
             RegistrationRequest reg = new RegistrationRequest();
             reg.setBranchId(branch.getId());
-            reg.setFirstName(text(row, c.get("first name")));
-            reg.setSurname(text(row, c.get("surname")));
+            reg.setFirstName(first);
+            reg.setSurname(surname);
             reg.setNationalId(nid);
             reg.setPhone(text(row, c.get("phone")));
             reg.setGender(text(row, c.get("gender")));
             reg.setVillage(text(row, c.get("village")));
             reg.setWard(text(row, c.get("ward")));
-            reg.setDateJoined(date);
+            reg.setCategory(category != null ? category : MemberCategory.NOT_VETERAN);
+            reg.setDateRegistered(date);
             reg.setCapturedBy(clerk);
-            reg.setPayJoiningFee(false);
-            reg.setSubsMonths(0);
-            if (reg.getFirstName() == null || reg.getSurname() == null) {
-                throw new BusinessException("ID " + nid + " is new: First Name and Surname are needed to register them.");
+            client = clientService.register(reg, "IMPORT");
+            note = "New client " + client.getClientNo() + ". ";
+        }
+        if (account != null && !account.getClient().getId().equals(client.getId())) {
+            throw new BusinessException("Account " + account.getAccountNo() + " belongs to " + account.getClient().getFullName() + ".");
+        }
+
+        // --- joining fee / subscription: SACCO members only; a first joining fee enrols the client
+        if (type.isMembershipFee() && !client.isSaccoMember()) {
+            MemberCategory cat = category != null ? category : client.getCategory();
+            if (type != ReceiptType.JOINING_FEE || cat == null || !cat.isVeteranCommunity()) {
+                throw new BusinessException(client.getFullName() + " is not a SACCO member. Membership is for the veteran community: "
+                        + "put their Category on the joining fee row.");
             }
-            member = memberService.register(reg, "IMPORT");
-            created = true;
+            MembershipRequest m = new MembershipRequest();
+            m.setCategory(cat);
+            m.setMemberSince(date);
+            m.setPayJoiningFee(false);
+            m.setSubsMonths(0);
+            clientService.enrol(client.getId(), m, "IMPORT");
+            note += "Enrolled as SACCO member (" + cat.getLabel() + "). ";
         }
 
-        String prefix = created ? "New member " + member.getMemberNo() + ". " : "";
-        if (type == ReceiptType.ACCOUNT_OPENING) {
-            if (account != null) throw new BusinessException("Account " + accountNo + " already exists.");
-            AccountRequest ar = new AccountRequest();
-            ar.setAccountNo(accountNo);
-            ar.setOpenedDate(date);
-            ar.setOpenedBy(clerk);
-            ar.setAssetType(AssetType.parse(text(row, c.get("asset type"))));
-            ar.setAssetDescription(text(row, c.get("asset description")));
-            ar.setQuotationCost(amount(row, c.get("quotation cost")));
-            ar.setTargetDate(safeDate(row, c.get("target date")));
-            ar.setNotes(text(row, c.get("notes")));
-            ar.setOpeningReceiptNo(receiptNo);
-            ar.setPaymentMethod(method);
-            AssetAccount opened = accountService.open(member.getId(), ar, "IMPORT");
-            return new RowResult("Receipts", n, Outcome.POSTED, prefix + "Opened account " + opened.getAccountNo() + " for " + member.getFullName() + ".");
-        }
-
-        if (amount == null || amount.signum() <= 0) throw new BusinessException("Amount is missing.");
         ReceiptRequest req = new ReceiptRequest();
         req.setBranchId(branch.getId());
         req.setReceiptDate(date);
         req.setType(type);
-        req.setMemberId(member.getId());
+        req.setClientId(client.getId());
         req.setAmount(amount);
         req.setReceiptNo(receiptNo);
         req.setPaymentMethod(method);
@@ -178,48 +189,103 @@ public class ExcelImportService {
         BigDecimal months = amount(row, c.get("months (subs)"));
         if (months != null) req.setMonths(months.intValue());
 
-        if (type.needsAccount()) {
-            if (account == null) account = onlyActiveAccount(member, accountNo);
-            if (!account.getMember().getId().equals(member.getId())) {
-                throw new BusinessException("Account " + account.getAccountNo() + " belongs to " + account.getMember().getFullName() + ", not ID " + nid + ".");
+        ProjectRequest asset = assetDetails(row, c, date, clerk);
+
+        if (type == ReceiptType.ACCOUNT_OPENING) {
+            if (account == null) {
+                AccountRequest ar = new AccountRequest();
+                ar.setAccountNo(accountNo);
+                ar.setOpenedDate(date);
+                ar.setOpenedBy(clerk);
+                ar.setOpeningFeeAmount(amount);
+                ar.setOpeningReceiptNo(receiptNo);
+                ar.setPaymentMethod(method);
+                AssetAccount opened = accountService.open(client.getId(), ar, asset.isEmpty() ? null : asset, "IMPORT");
+                return new RowResult("Receipts", n, Outcome.POSTED, note + "Opened account " + opened.getAccountNo() + " for "
+                        + client.getFullName() + " ($" + amount + " of $" + AssetAccount.OPENING_FEE + " opening fee).");
             }
-            fillMissingAssetDetails(account, row, c);
+            req.setAccountId(account.getId()); // a further instalment of the opening fee
+        }
+
+        if (type.needsProject()) {
+            if (account == null) account = onlyAccount(client, accountNo);
             req.setAccountId(account.getId());
+            Project p = pickProject(account, type, asset);
+            if (p == null && type == ReceiptType.ASSET_DEPOSIT && !asset.isEmpty()) {
+                p = projectService.create(account.getId(), asset, "IMPORT");
+                note += "New project " + p.getAssetLabel() + ". ";
+            }
+            if (p != null) {
+                fillMissingAssetDetails(p, asset);
+                req.setProjectId(p.getId());
+            }
         }
         Receipt saved = receiptService.record(req);
-        return new RowResult("Receipts", n, Outcome.POSTED, prefix + saved.getType().getLabel() + " $" + saved.getAmount()
-                + " for " + member.getFullName() + (saved.getAccount() != null ? " on " + saved.getAccount().getAccountNo() : "") + ".");
+        return new RowResult("Receipts", n, Outcome.POSTED, note + saved.getType().getLabel() + " $" + saved.getAmount()
+                + " for " + client.getFullName() + (saved.getProject() != null ? " on " + saved.getProject().getLabel()
+                : saved.getAccount() != null ? " on " + saved.getAccount().getAccountNo() : "") + ".");
     }
 
-    private AssetAccount onlyActiveAccount(Member m, String accountNo) {
+    private ProjectRequest assetDetails(Row row, Map<String, Integer> c, LocalDate date, String clerk) {
+        ProjectRequest p = new ProjectRequest();
+        p.setAssetType(AssetType.parse(text(row, c.get("asset type"))));
+        p.setAssetDescription(text(row, c.get("asset description")));
+        p.setQuotationCost(amount(row, c.get("quotation cost")));
+        p.setTargetDate(safeDate(row, c.get("target date")));
+        p.setCreatedDate(date);
+        p.setCapturedBy(clerk);
+        return p;
+    }
+
+    private AssetAccount onlyAccount(Client client, String accountNo) {
         if (accountNo != null) throw new BusinessException("Account " + accountNo + " not found.");
-        List<AssetAccount> open = accounts.findByMemberIdOrderByOpenedDateDesc(m.getId()).stream()
-                .filter(a -> a.getStatus() != ProjectStatus.CANCELLED).toList();
+        List<AssetAccount> open = accounts.findByClientIdOrderByOpenedDateDesc(client.getId()).stream()
+                .filter(a -> !a.isClosed()).toList();
         if (open.size() == 1) return open.get(0);
-        throw new BusinessException(open.isEmpty() ? m.getFullName() + " has no asset finance account yet."
-                : m.getFullName() + " has " + open.size() + " accounts: fill in Account No.");
+        throw new BusinessException(open.isEmpty() ? client.getFullName() + " has no asset finance account yet."
+                : client.getFullName() + " has " + open.size() + " accounts: fill in Account No.");
     }
 
-    private void fillMissingAssetDetails(AssetAccount a, Row row, Map<String, Integer> c) {
-        if (a.isLoanStarted()) return;
+    /** The project a deposit/repayment is for: the only eligible one, or the one matching the asset type given. */
+    private Project pickProject(AssetAccount account, ReceiptType type, ProjectRequest asset) {
+        List<Project> eligible = projects.findByAccountIdOrderByIdAsc(account.getId()).stream()
+                .filter(p -> type == ReceiptType.LOAN_REPAYMENT ? p.isLoanStarted() : p.getStatus().isPreStart()).toList();
+        if (asset.getAssetType() != null) {
+            List<Project> match = eligible.stream().filter(p -> p.getAssetType() == asset.getAssetType()).toList();
+            if (match.size() == 1) return match.get(0);
+            if (match.isEmpty() && type == ReceiptType.ASSET_DEPOSIT) return null; // a new project on this account
+            if (match.size() > 1) throw new BusinessException("Account " + account.getAccountNo() + " has " + match.size() + " "
+                    + asset.getAssetType().getLabel() + " projects: capture this one at HQ.");
+        }
+        if (eligible.size() == 1) return eligible.get(0);
+        if (eligible.isEmpty()) {
+            if (type == ReceiptType.ASSET_DEPOSIT && !asset.isEmpty()) return null;
+            throw new BusinessException("Account " + account.getAccountNo() + (type == ReceiptType.LOAN_REPAYMENT
+                    ? " has no running loan." : " has no project yet: fill Asset Type / Description / Quotation on this row."));
+        }
+        throw new BusinessException("Account " + account.getAccountNo() + " has " + eligible.size() + " projects: fill Asset Type to say which.");
+    }
+
+    private void fillMissingAssetDetails(Project p, ProjectRequest asset) {
+        if (p.isLoanStarted()) return;
         boolean changed = false;
-        if (a.getAssetType() == null && text(row, c.get("asset type")) != null) {
-            a.setAssetType(AssetType.parse(text(row, c.get("asset type"))));
+        if (p.getAssetType() == null && asset.getAssetType() != null) {
+            p.setAssetType(asset.getAssetType());
             changed = true;
         }
-        if (a.getAssetDescription() == null && text(row, c.get("asset description")) != null) {
-            a.setAssetDescription(text(row, c.get("asset description")));
+        if (p.getAssetDescription() == null && asset.getAssetDescription() != null) {
+            p.setAssetDescription(asset.getAssetDescription());
             changed = true;
         }
-        if (a.getQuotationCost() == null && amount(row, c.get("quotation cost")) != null) {
-            a.setQuotationCost(amount(row, c.get("quotation cost")));
+        if (p.getQuotationCost() == null && asset.getQuotationCost() != null) {
+            p.setQuotationCost(asset.getQuotationCost());
             changed = true;
         }
-        if (a.getTargetDate() == null && safeDate(row, c.get("target date")) != null) {
-            a.setTargetDate(safeDate(row, c.get("target date")));
+        if (p.getTargetDate() == null && asset.getTargetDate() != null) {
+            p.setTargetDate(asset.getTargetDate());
             changed = true;
         }
-        if (changed) accounts.save(a);
+        if (changed) projects.save(p);
     }
 
     private RowResult expenseRow(Branch branch, Row row, Map<String, Integer> c) {

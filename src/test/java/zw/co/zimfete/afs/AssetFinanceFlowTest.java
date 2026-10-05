@@ -17,137 +17,198 @@ import zw.co.zimfete.afs.service.*;
 @SpringBootTest
 @Transactional
 class AssetFinanceFlowTest {
-    @Autowired MemberService memberService;
+    @Autowired ClientService clientService;
     @Autowired AccountService accountService;
+    @Autowired ProjectService projectService;
     @Autowired ReceiptService receiptService;
     @Autowired ReportService reportService;
     @Autowired BranchRepository branches;
     @Autowired AssetAccountRepository accounts;
-    @Autowired ReceiptRepository receipts;
+    @Autowired ProjectRepository projects;
+    @Autowired ExpenseRepository expenseRepository;
 
     private final LocalDate day = LocalDate.now().minusDays(3);
 
-    private Member register(String id, boolean openAccount) {
+    private RegistrationRequest person(String name, MemberCategory category) {
         RegistrationRequest r = new RegistrationRequest();
-        r.setBranchId(branches.findByCode("MRW").orElseThrow().getId());
-        r.setFirstName("Tendai");
+        r.setBranchId(branches.findByCode("MRE").orElseThrow().getId());
+        r.setFirstName(name);
         r.setSurname("Moyo");
-        r.setNationalId(id);
-        r.setWard("12");
-        r.setDateJoined(day);
+        r.setCategory(category);
+        r.setWard("Ward 7");
+        r.setDateRegistered(day);
         r.setCapturedBy("Clerk A");
-        r.setSubsMonths(2);
-        r.setOpenAccount(openAccount);
-        r.getAccount().setAssetType(AssetType.BOREHOLE);
-        r.getAccount().setQuotationCost(new BigDecimal("4000"));
-        r.getAccount().setInitialDeposit(new BigDecimal("500"));
-        return memberService.register(r, "MANUAL");
+        return r;
+    }
+
+    private RegistrationRequest withAccount(RegistrationRequest r, String cost, String deposit) {
+        r.setOpenAccount(true);
+        r.getProject().setAssetType(AssetType.BOREHOLE);
+        r.getProject().setQuotationCost(new BigDecimal(cost));
+        r.getProject().setInitialDeposit(new BigDecimal(deposit));
+        return r;
     }
 
     @Test
-    void registeringAMemberPostsFeesAndOpensAccountInOneGo() {
-        Member m = register("63-123456 A 75", true);
+    void veteranJoinsTheSaccoAndPaysMembershipFees() {
+        RegistrationRequest r = person("Tendai", MemberCategory.WAR_VETERAN);
+        r.setJoinSacco(true);
+        r.getMembership().setSubsMonths(2);
+        Client c = clientService.register(r, "MANUAL");
 
-        assertThat(m.getMemberNo()).isEqualTo("MRW-M00001");
-        assertThat(m.getNationalId()).isEqualTo("63123456A75");
-        assertThat(m.isJoiningFeePaid()).isTrue();
-        assertThat(m.getSubsPaidUntil()).isEqualTo(day.withDayOfMonth(1).plusMonths(1));
+        assertThat(c.getClientNo()).isEqualTo("MRE-C00001");
+        assertThat(c.isSaccoMember()).isTrue();
+        assertThat(c.getMemberSince()).isEqualTo(day);
+        assertThat(c.isJoiningFeePaid()).isTrue();
+        assertThat(c.getSubsPaidUntil()).isEqualTo(day.withDayOfMonth(1).plusMonths(1));
+        assertThat(accounts.findByClientIdOrderByOpenedDateDesc(c.getId())).isEmpty(); // member only, no asset finance
 
-        AssetAccount a = accounts.findByMemberIdOrderByOpenedDateDesc(m.getId()).get(0);
-        assertThat(a.getAccountNo()).isEqualTo("AF-MRW-0001");
-        assertThat(a.getOpenedBy()).isEqualTo("Clerk A");
-        assertThat(a.getTotalDeposited()).isEqualByComparingTo("500");
-        assertThat(a.getStatus()).isEqualTo(ProjectStatus.SAVING);
-
-        // joining 10 + subs 2 + opening 50 = 62 income; 500 deposit is client funds
-        ReportService.CashReport r = reportService.cashReport(day, day, null);
-        assertThat(r.incomeTotal()).isEqualByComparingTo("62");
-        assertThat(r.collectionsTotal()).isEqualByComparingTo("500");
-        assertThat(r.newMembers()).isEqualTo(1);
-        assertThat(r.accountsOpened()).isEqualTo(1);
-        assertThat(reportService.whatsappText(r)).contains("Total received: $562.00");
+        ReportService.CashReport rep = reportService.cashReport(day, day, null);
+        assertThat(rep.incomeTotal()).isEqualByComparingTo("12");
+        assertThat(rep.newMembers()).isEqualTo(1);
     }
 
     @Test
-    void duplicateNationalIdIsRejected() {
-        register("63-111111B22", false);
-        assertThatThrownBy(() -> register("63111111b22", false)).isInstanceOf(BusinessException.class)
-                .hasMessageContaining("already registered");
+    void membershipIsForTheVeteranCommunityOnly() {
+        RegistrationRequest r = person("Farai", MemberCategory.NOT_VETERAN);
+        r.setJoinSacco(true);
+        assertThatThrownBy(() -> clientService.register(r, "MANUAL")).isInstanceOf(BusinessException.class)
+                .hasMessageContaining("veteran community");
     }
 
     @Test
-    void projectLifecycleFromDepositsToLoanClearance() {
-        Member m = register("70-222222C33", true);
-        AssetAccount a = accounts.findByMemberIdOrderByOpenedDateDesc(m.getId()).get(0);
+    void nonMemberOpensAnAccountWithoutMembershipFees() {
+        Client c = clientService.register(withAccount(person("Rudo", MemberCategory.NOT_VETERAN), "4000", "500"), "MANUAL");
+        assertThat(c.isSaccoMember()).isFalse();
+        assertThat(c.subsMonthsOwed(LocalDate.now())).isZero();
 
-        assertThatThrownBy(() -> accountService.startProject(a.getId(), day, 10)).isInstanceOf(BusinessException.class);
+        AssetAccount a = accounts.findByClientIdOrderByOpenedDateDesc(c.getId()).get(0);
+        assertThat(a.getAccountNo()).isEqualTo("MRE" + String.format("%02d", day.getYear() % 100) + "01ME");
+        assertThat(a.isActive()).isTrue();
 
-        deposit(a, "1500"); // 500 + 1500 = 2000 = 50% of 4000
-        assertThat(a.getStatus()).isEqualTo(ProjectStatus.THRESHOLD_MET);
-        assertThat(a.getThresholdReachedDate()).isEqualTo(day);
-        assertThat(reportService.byStatus(ProjectStatus.THRESHOLD_MET, null)).contains(a);
+        ReceiptRequest subs = new ReceiptRequest();
+        subs.setClientId(c.getId());
+        subs.setType(ReceiptType.SUBSCRIPTION);
+        subs.setAmount(BigDecimal.ONE);
+        assertThatThrownBy(() -> receiptService.record(subs)).hasMessageContaining("not a SACCO member");
 
-        accountService.startProject(a.getId(), day, 10);
-        assertThat(a.getLoanTerms().totalRepayable()).isEqualByComparingTo("2600.00"); // (4000-2000) * 1.3
-        assertThat(a.getLoanTerms().monthlyInstalment()).isEqualByComparingTo("260.00");
-
-        assertThatThrownBy(() -> deposit(a, "10")).isInstanceOf(BusinessException.class);
-        accountService.complete(a.getId(), day.plusDays(2));
-        assertThat(a.getStatus()).isEqualTo(ProjectStatus.COMPLETED);
-        assertThat(a.getDaysToComplete()).isEqualTo(2);
-
-        Receipt rep = repay(a, "2600");
-        assertThat(a.getLoanBalance()).isEqualByComparingTo("0");
-        assertThat(a.getLoanClearedDate()).isEqualTo(day);
-
-        receiptService.reverse(rep.getId(), "wrong account");
-        assertThat(a.getLoanBalance()).isEqualByComparingTo("2600");
-        assertThat(a.getLoanClearedDate()).isNull();
+        ReportService.CashReport rep = reportService.cashReport(day, day, null);
+        assertThat(rep.incomeTotal()).isEqualByComparingTo("50");
+        assertThat(rep.collectionsTotal()).isEqualByComparingTo("500");
+        assertThat(rep.newMembers()).isZero();
+        assertThat(rep.newClients()).isEqualTo(1);
     }
 
     @Test
-    void reversingADepositDropsTheAccountBelowThreshold() {
-        Member m = register("75-333333D44", true);
-        AssetAccount a = accounts.findByMemberIdOrderByOpenedDateDesc(m.getId()).get(0);
-        Receipt big = deposit(a, "1500");
-        assertThat(a.getStatus()).isEqualTo(ProjectStatus.THRESHOLD_MET);
-        receiptService.reverse(big.getId(), "bounced");
-        assertThat(a.getStatus()).isEqualTo(ProjectStatus.SAVING);
-        assertThat(a.getTotalDeposited()).isEqualByComparingTo("500");
+    void openingFeeCanBePaidInInstalments() {
+        RegistrationRequest r = person("Rudo", MemberCategory.NOT_VETERAN);
+        r.setOpenAccount(true);
+        r.getAccount().setOpeningFeeAmount(new BigDecimal("20"));
+        Client c = clientService.register(r, "MANUAL");
+        AssetAccount a = accounts.findByClientIdOrderByOpenedDateDesc(c.getId()).get(0);
+        assertThat(a.isActive()).isFalse();
+        assertThat(a.getOpeningFeeBalance()).isEqualByComparingTo("30");
+
+        ReceiptRequest more = new ReceiptRequest();
+        more.setAccountId(a.getId());
+        more.setType(ReceiptType.ACCOUNT_OPENING);
+        more.setAmount(new BigDecimal("40"));
+        assertThatThrownBy(() -> receiptService.record(more)).hasMessageContaining("Only $30.00");
+        more.setAmount(new BigDecimal("30"));
+        receiptService.record(more);
+        assertThat(a.isActive()).isTrue();
+        assertThat(a.getActivatedDate()).isEqualTo(LocalDate.now());
     }
 
     @Test
-    void monthlyReportSplitsIncomeFromClientFunds() {
-        register("80-444444E55", true);
-        Branch mrw = branches.findByCode("MRW").orElseThrow();
+    void oneAccountCarriesSeveralProjects() {
+        Client c = clientService.register(withAccount(person("Viola", MemberCategory.WIDOW), "2140", "1070"), "MANUAL");
+        AssetAccount a = accounts.findByClientIdOrderByOpenedDateDesc(c.getId()).get(0);
+        ProjectRequest fence = new ProjectRequest();
+        fence.setAssetType(AssetType.FENCING);
+        fence.setQuotationCost(new BigDecimal("1000"));
+        fence.setInitialDeposit(new BigDecimal("500"));
+        projectService.create(a.getId(), fence, "MANUAL");
+
+        assertThat(projects.findByAccountIdOrderByIdAsc(a.getId())).hasSize(2)
+                .allMatch(p -> p.getStatus() == ProjectStatus.THRESHOLD_MET);
+
+        ReceiptRequest ambiguous = new ReceiptRequest();
+        ambiguous.setAccountId(a.getId());
+        ambiguous.setType(ReceiptType.ASSET_DEPOSIT);
+        ambiguous.setAmount(BigDecimal.TEN);
+        assertThatThrownBy(() -> receiptService.record(ambiguous)).hasMessageContaining("choose which one");
+    }
+
+    @Test
+    void projectNeedsCommitteeApprovalThenDisbursementFixesTheLoan() {
+        Client c = clientService.register(withAccount(person("Cephas", MemberCategory.WAR_COLLABORATOR), "1825", "500"), "MANUAL");
+        Project p = projects.findByClient(c.getId()).get(0);
+        assertThat(p.getStatus()).isEqualTo(ProjectStatus.SAVING);
+
+        assertThatThrownBy(() -> projectService.approve(p.getId(), day, null)).hasMessageContaining("committee's reason");
+        deposit(p, "460"); // 960 >= 912.50
+        assertThat(p.getStatus()).isEqualTo(ProjectStatus.THRESHOLD_MET);
+        assertThat(reportService.byStatus(ProjectStatus.THRESHOLD_MET, null)).contains(p);
+
+        assertThatThrownBy(() -> projectService.start(p.getId(), day, 4, null, null, null)).hasMessageContaining("committee must approve");
+        projectService.approve(p.getId(), day, null);
+        projectService.start(p.getId(), day, 4, new BigDecimal("20"), null, "Drillers Ltd");
+        assertThat(p.getStatus()).isEqualTo(ProjectStatus.IN_PROGRESS);
+        assertThat(p.getLoanTerms().totalRepayable()).isEqualByComparingTo("1038.00");
+        assertThat(p.getDisbursedAmount()).isEqualByComparingTo("1825");
+
+        ReportService.CashReport rep = reportService.cashReport(day, day, null);
+        assertThat(rep.disbursementsTotal()).isEqualByComparingTo("1825");
+        assertThat(rep.net()).isEqualByComparingTo(rep.receiptsTotal().subtract(new BigDecimal("1825")));
+        assertThat(reportService.whatsappText(rep)).contains("Loan (project) Cephas Moyo");
+
+        assertThatThrownBy(() -> deposit(p, "10")).hasMessageContaining("loan repayments");
+        projectService.complete(p.getId(), day.plusDays(2));
+        assertThat(p.getDaysToComplete()).isEqualTo(2);
+
+        Receipt rep1 = post(p, ReceiptType.LOAN_REPAYMENT, "1038");
+        assertThat(p.getLoanBalance()).isEqualByComparingTo("0");
+        assertThat(p.getLoanClearedDate()).isEqualTo(day);
+        receiptService.reverse(rep1.getId(), "wrong project");
+        assertThat(p.getLoanBalance()).isEqualByComparingTo("1038");
+        assertThat(p.getLoanClearedDate()).isNull();
+    }
+
+    @Test
+    void committeeCanApproveBelowTheMinimumWithAReason() {
+        Client c = clientService.register(withAccount(person("Patricia", MemberCategory.NOT_VETERAN), "110", "0.01"), "MANUAL");
+        Project p = projects.findByClient(c.getId()).get(0);
+        projectService.approve(p.getId(), day, "Committee: poultry pilot");
+        assertThat(p.getStatus()).isEqualTo(ProjectStatus.APPROVED);
+        assertThat(p.getApprovalNote()).isEqualTo("Committee: poultry pilot");
+    }
+
+    @Test
+    void monthlyReportSeparatesIncomeClientFundsAndDisbursements() {
+        clientService.register(withAccount(person("Febby", MemberCategory.NOT_VETERAN), "2325", "900"), "MANUAL");
         Expense e = new Expense();
-        e.setBranch(mrw);
+        e.setBranch(branches.findByCode("MRE").orElseThrow());
         e.setExpenseDate(day);
-        e.setCategory("Transport");
-        e.setAmount(new BigDecimal("20"));
+        e.setCategory("Airtime & travel");
+        e.setAmount(new BigDecimal("1"));
         expenseRepository.save(e);
 
         ReportService.MonthlyReport m = reportService.monthly(YearMonth.from(day), null);
-        assertThat(m.totals().incomeTotal()).isEqualByComparingTo("62");
-        assertThat(m.getSurplus()).isEqualByComparingTo("42");
-        assertThat(m.totals().getDeposits()).isEqualByComparingTo("500");
+        assertThat(m.totals().incomeTotal()).isEqualByComparingTo("50");
+        assertThat(m.getSurplus()).isEqualByComparingTo("49");
+        assertThat(m.totals().getDeposits()).isEqualByComparingTo("900");
         assertThat(m.branchRows()).hasSize(7);
         assertThat(m.days()).hasSize(1);
     }
 
-    @Autowired ExpenseRepository expenseRepository;
-
-    private Receipt deposit(AssetAccount a, String amount) {
-        return post(a, ReceiptType.ASSET_DEPOSIT, amount);
+    private Receipt deposit(Project p, String amount) {
+        return post(p, ReceiptType.ASSET_DEPOSIT, amount);
     }
 
-    private Receipt repay(AssetAccount a, String amount) {
-        return post(a, ReceiptType.LOAN_REPAYMENT, amount);
-    }
-
-    private Receipt post(AssetAccount a, ReceiptType type, String amount) {
+    private Receipt post(Project p, ReceiptType type, String amount) {
         ReceiptRequest r = new ReceiptRequest();
-        r.setAccountId(a.getId());
+        r.setProjectId(p.getId());
         r.setType(type);
         r.setAmount(new BigDecimal(amount));
         r.setReceiptDate(day);

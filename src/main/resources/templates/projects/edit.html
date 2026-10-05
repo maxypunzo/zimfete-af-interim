@@ -1,0 +1,22 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Edit project', 'register', ~{::section})}">
+<section>
+  <h1 th:text="'Edit project — ' + ${p.label}"></h1>
+  <form method="post" th:action="@{/projects/{id}/edit(id=${p.id})}" th:object="${form}">
+    <fieldset><legend>Project / asset</legend>
+      <div class="form-grid">
+        <div><label>Asset type</label><select th:field="*{assetType}"><option value="">- not yet known -</option>
+          <option th:each="t : ${assetTypes}" th:value="${t}" th:text="${t.label}"></option></select></div>
+        <div><label>Description</label><input th:field="*{assetDescription}"></div>
+        <div><label>Supplier</label><input th:field="*{supplier}"></div>
+        <div><label>Quotation / project cost ($)</label><input type="number" step="0.01" min="0" th:field="*{quotationCost}" th:readonly="${p.loanStarted}"></div>
+        <div><label>Minimum deposit %</label><input type="number" step="0.01" min="0" max="100" th:field="*{minDepositPercent}"></div>
+        <div><label>Interest % (once)</label><input type="number" step="0.01" min="0" max="100" th:field="*{interestPercent}" th:placeholder="${defaultInterest}" th:readonly="${p.loanStarted}"></div>
+        <div><label>Repayment months (planned)</label><input type="number" min="1" th:field="*{repaymentMonths}" th:readonly="${p.loanStarted}"></div>
+        <div><label>Target start date</label><input type="date" th:field="*{targetDate}"></div>
+      </div>
+      <div style="margin-top:10px"><label>Notes</label><textarea th:field="*{notes}" rows="3"></textarea></div>
+    </fieldset>
+    <div class="actions"><button type="submit">Save</button><a class="btn alt" th:href="@{/projects/{id}(id=${p.id})}">Cancel</a></div>
+  </form>
+</section>
+</html>

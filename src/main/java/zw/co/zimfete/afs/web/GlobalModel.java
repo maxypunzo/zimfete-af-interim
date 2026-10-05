@@ -53,6 +53,21 @@ public class GlobalModel {
         return AssetType.values();
     }
 
+    @ModelAttribute("categories")
+    public MemberCategory[] categories() {
+        return MemberCategory.values();
+    }
+
+    @ModelAttribute("veteranCategories")
+    public List<MemberCategory> veteranCategories() {
+        return java.util.Arrays.stream(MemberCategory.values()).filter(MemberCategory::isVeteranCommunity).toList();
+    }
+
+    @ModelAttribute("defaultInterest")
+    public java.math.BigDecimal defaultInterest() {
+        return props.interestPercent();
+    }
+
     @ModelAttribute("statuses")
     public ProjectStatus[] statuses() {
         return ProjectStatus.values();

@@ -1,0 +1,39 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Clients', 'clients', ~{::section})}">
+<section>
+  <h1>Clients &amp; SACCO members</h1>
+  <form class="inline card" method="get" th:action="@{/clients}">
+    <div style="flex:1"><label>Search name, ID, client no or phone</label><input name="q" th:value="${q}" autofocus></div>
+    <div><label>Branch</label><select th:replace="~{fragments :: branchFilter(${branchId}, 'All branches')}"></select></div>
+    <div><label>Show</label><select name="members">
+      <option value="">Everyone</option>
+      <option value="true" th:selected="${members == true}">SACCO members only</option>
+      <option value="false" th:selected="${members == false}">Non-members only</option></select></div>
+    <div><label>Category</label><select name="category"><option value="">All</option>
+      <option th:each="c : ${categories}" th:value="${c}" th:text="${c.label}" th:selected="${c == category}"></option></select></div>
+    <button type="submit">Search</button>
+  </form>
+  <div class="actions">
+    <a class="btn orange" th:href="@{/clients/new(member=true)}">+ New SACCO member (veteran community)</a>
+    <a class="btn" th:href="@{/clients/new}">+ New asset finance client</a>
+  </div>
+  <p class="muted" th:text="${#lists.size(clients)} + ' client(s)'"></p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Client no</th><th>Name</th><th>Phone</th><th>Ward / area</th><th>Branch</th><th>Category</th><th>SACCO member</th><th>Subs paid to</th></tr></thead>
+    <tbody>
+    <tr th:each="c : ${clients}">
+      <td><a th:href="@{/clients/{id}(id=${c.id})}" th:text="${c.clientNo}"></a></td>
+      <td th:text="${c.fullName}"></td>
+      <td th:text="${c.phone}"></td>
+      <td th:text="${c.ward}"></td>
+      <td th:text="${c.branch.name}"></td>
+      <td th:text="${c.category.veteranCommunity} ? ${c.category.label} : ''"></td>
+      <td th:text="${c.saccoMember} ? 'Since ' + ${#temporals.format(c.memberSince, 'dd/MM/yyyy')} : '-'"></td>
+      <td th:if="${c.saccoMember}" th:text="${c.subsPaidUntil != null ? #temporals.format(c.subsPaidUntil, 'MMM yyyy') : 'none'}"
+          th:classappend="${c.subsMonthsOwed(today) > 0} ? 'red'"></td>
+      <td th:unless="${c.saccoMember}"></td>
+    </tr>
+    <tr th:if="${#lists.isEmpty(clients)}"><td colspan="8" class="muted">No clients found.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+</html>

@@ -20,24 +20,26 @@ import zw.co.zimfete.afs.repo.*;
 public class ExcelExportService {
     public static final String[] RETURN_RECEIPT_COLUMNS = {
             "Date", "Receipt No", "Type", "First Name", "Surname", "National ID", "Phone", "Gender", "Village", "Ward",
-            "Account No", "Asset Type", "Asset Description", "Quotation Cost", "Target Date", "Amount", "Months (subs)",
-            "Payment Method", "Clerk", "Notes"
+            "Category", "Account No", "Asset Type", "Asset Description", "Quotation Cost", "Target Date", "Amount",
+            "Months (subs)", "Payment Method", "Clerk", "Notes"
     };
     public static final String[] RETURN_EXPENSE_COLUMNS = {
             "Date", "Voucher No", "Category", "Description", "Payee", "Amount", "Clerk"
     };
 
-    private final MemberRepository members;
+    private final ClientRepository clients;
     private final AssetAccountRepository accounts;
+    private final ProjectRepository projects;
     private final ReceiptRepository receipts;
     private final ExpenseRepository expenses;
     private final BranchRepository branches;
     private final ReportService reports;
 
-    public ExcelExportService(MemberRepository members, AssetAccountRepository accounts, ReceiptRepository receipts,
-                              ExpenseRepository expenses, BranchRepository branches, ReportService reports) {
-        this.members = members;
+    public ExcelExportService(ClientRepository clients, AssetAccountRepository accounts, ProjectRepository projects,
+                              ReceiptRepository receipts, ExpenseRepository expenses, BranchRepository branches, ReportService reports) {
+        this.clients = clients;
         this.accounts = accounts;
+        this.projects = projects;
         this.receipts = receipts;
         this.expenses = expenses;
         this.branches = branches;
@@ -49,69 +51,112 @@ public class ExcelExportService {
             Styles st = new Styles(wb);
 
             Sheet s = wb.createSheet("District summary");
-            header(s, st, "District", "Members", "Accounts", "Opened this month", "Deposits to date", "Deposits this month",
-                    "Saving", "Min deposit reached", "Started", "Completed", "Due (14 days)", "Loan book", "Arrears");
+            header(s, st, "District", "Clients", "SACCO members", "Accounts", "Active accounts", "Opened this month",
+                    "Deposits to date", "Deposits this month", "Saving", "Awaiting committee", "Approved", "Started",
+                    "Completed", "Due (14 days)", "Loan book", "Arrears");
             int r = 1;
             for (ReportService.DistrictStats d : reports.districtStats(today)) {
-                row(s, st, r++, d.branch().getLabel(), d.members(), d.accounts(), d.accountsThisMonth(), d.depositsTotal(),
-                        d.depositsThisMonth(), d.saving(), d.thresholdMet(), d.inProgress(), d.completed(), d.due(), d.loanBook(), d.arrears());
+                row(s, st, r++, d.branch().getLabel(), d.clients(), d.members(), d.accounts(), d.activeAccounts(),
+                        d.accountsThisMonth(), d.depositsTotal(), d.depositsThisMonth(), d.saving(), d.awaitingApproval(),
+                        d.approved(), d.inProgress(), d.completed(), d.due(), d.loanBook(), d.arrears());
             }
-            autosize(s, 13);
+            autosize(s, 16);
 
-            s = wb.createSheet("Members");
-            header(s, st, "Member No", "Branch", "First Name", "Surname", "National ID", "Gender", "Phone", "Village", "Ward",
-                    "District", "Date Joined", "Joining Fee Paid", "Subs Paid Until", "Months Owed");
+            s = wb.createSheet("Membership");
+            MemberCategory[] cats = java.util.Arrays.stream(MemberCategory.values()).filter(MemberCategory::isVeteranCommunity).toArray(MemberCategory[]::new);
+            String[] head = new String[cats.length + 2];
+            head[0] = "District";
+            for (int i = 0; i < cats.length; i++) head[i + 1] = cats[i].getLabel();
+            head[cats.length + 1] = "Total members";
+            header(s, st, head);
             r = 1;
-            for (Member m : members.findAll()) {
-                row(s, st, r++, m.getMemberNo(), m.getBranch().getName(), m.getFirstName(), m.getSurname(), m.getNationalId(),
-                        m.getGender(), m.getPhone(), m.getVillage(), m.getWard(), m.getDistrict(), m.getDateJoined(),
-                        m.isJoiningFeePaid() ? "Yes" : "No", m.getSubsPaidUntil(), m.subsMonthsOwed(today));
+            for (ReportService.MembershipRow m : reports.membership()) {
+                Object[] v = new Object[cats.length + 2];
+                v[0] = m.branch().getLabel();
+                for (int i = 0; i < cats.length; i++) v[i + 1] = m.byCategory().get(cats[i]);
+                v[cats.length + 1] = m.total();
+                row(s, st, r++, v);
             }
-            autosize(s, 14);
+            autosize(s, head.length);
 
-            s = wb.createSheet("Accounts & projects");
-            header(s, st, "Account No", "Branch", "Member", "National ID", "Ward", "Opened", "Opened By", "Asset Type", "Asset",
-                    "Quotation", "Min Deposit", "Deposited", "Shortfall", "Status", "Threshold Reached", "Target Date",
-                    "Started", "Completed", "Months", "Loan Principal", "Interest (30%)", "Total Loan", "Instalment",
-                    "Repaid", "Balance", "Arrears");
+            s = wb.createSheet("Clients");
+            header(s, st, "Client No", "Branch", "First Name", "Surname", "National ID", "Gender", "Phone", "Village", "Ward",
+                    "District", "Registered", "Category", "Veteran Ref", "Related Veteran", "SACCO Member", "Member Since",
+                    "Joining Fee Paid", "Subs Paid Until", "Months Owed");
+            r = 1;
+            for (Client c : clients.findAll()) {
+                row(s, st, r++, c.getClientNo(), c.getBranch().getName(), c.getFirstName(), c.getSurname(), c.getNationalId(),
+                        c.getGender(), c.getPhone(), c.getVillage(), c.getWard(), c.getDistrict(), c.getDateRegistered(),
+                        c.getCategory().getLabel(), c.getVeteranRef(), c.getRelatedVeteran(), c.isSaccoMember() ? "Yes" : "No",
+                        c.getMemberSince(), c.isSaccoMember() ? (c.isJoiningFeePaid() ? "Yes" : "No") : null,
+                        c.getSubsPaidUntil(), c.isSaccoMember() ? c.subsMonthsOwed(today) : null);
+            }
+            autosize(s, 19);
+
+            s = wb.createSheet("Accounts");
+            header(s, st, "Account No", "Branch", "Client", "Phone", "Ward", "Opened", "Opened By", "Opening Fee Paid",
+                    "Active", "Activated", "Projects");
             r = 1;
             for (AssetAccount a : accounts.findAllByOrderByOpenedDateDescIdDesc()) {
-                LoanTerms t = a.getLoanTerms();
-                row(s, st, r++, a.getAccountNo(), a.getBranch().getName(), a.getMember().getFullName(), a.getMember().getNationalId(),
-                        a.getMember().getWard(), a.getOpenedDate(), a.getOpenedBy(),
-                        a.getAssetType() == null ? null : a.getAssetType().getLabel(), a.getAssetDescription(),
-                        a.getQuotationCost(), a.getMinimumDeposit(), a.getTotalDeposited(), a.getDepositShortfall(),
-                        a.getStatus().getLabel(), a.getThresholdReachedDate(), a.getTargetDate(), a.getProjectStartDate(),
-                        a.getCompletionDate(), a.getRepaymentMonths(),
-                        t == null ? null : t.principal(), t == null ? null : t.interest(), t == null ? null : t.totalRepayable(),
-                        t == null ? null : t.monthlyInstalment(), a.getTotalRepaid(), a.getLoanBalance(), a.getArrears(today));
-            }
-            autosize(s, 26);
-
-            List<Receipt> all = receipts.find(LocalDate.of(2000, 1, 1), today.plusYears(1), null, null);
-            s = wb.createSheet("Deposits");
-            header(s, st, "Date", "Receipt No", "Branch", "Member", "National ID", "Ward", "Account No", "Asset", "Quotation", "Amount", "Captured By");
-            r = 1;
-            for (Receipt x : all) {
-                if (x.isReversed() || x.getType() != ReceiptType.ASSET_DEPOSIT) continue;
-                AssetAccount a = x.getAccount();
-                row(s, st, r++, x.getReceiptDate(), x.getReceiptNo(), x.getBranch().getName(), x.getPayerName(),
-                        x.getMember().getNationalId(), x.getMember().getWard(), a.getAccountNo(),
-                        a.getAssetType() == null ? null : a.getAssetType().getLabel(), a.getQuotationCost(), x.getAmount(), x.getCapturedBy());
+                row(s, st, r++, a.getAccountNo(), a.getBranch().getName(), a.getClient().getFullName(), a.getClient().getPhone(),
+                        a.getClient().getWard(), a.getOpenedDate(), a.getOpenedBy(), a.getOpeningFeePaid(), a.getStatusLabel(),
+                        a.getActivatedDate(), projects.findByAccountIdOrderByIdAsc(a.getId()).size());
             }
             autosize(s, 11);
 
+            s = wb.createSheet("Projects");
+            header(s, st, "Account No", "Branch", "Client", "Ward", "Asset Type", "Asset", "Supplier", "Quotation", "Min Deposit",
+                    "Deposited", "Shortfall", "Status", "Min Reached", "Approved", "Approval Note", "Target Date", "Started",
+                    "Disbursed", "Completed", "Days", "Months", "Interest %", "Loan Principal", "Interest", "Total Loan",
+                    "Instalment", "Repaid", "Balance", "Arrears");
+            r = 1;
+            for (Project p : projects.findAllOrdered()) {
+                LoanTerms t = p.getLoanTerms();
+                row(s, st, r++, p.getAccount().getAccountNo(), p.getBranch().getName(), p.getClient().getFullName(), p.getClient().getWard(),
+                        p.getAssetType() == null ? null : p.getAssetType().getLabel(), p.getAssetDescription(), p.getSupplier(),
+                        p.getQuotationCost(), p.getMinimumDeposit(), p.getTotalDeposited(), p.getDepositShortfall(),
+                        p.getStatus().getLabel(), p.getThresholdReachedDate(), p.getApprovedDate(), p.getApprovalNote(),
+                        p.getTargetDate(), p.getProjectStartDate(), p.getDisbursedAmount(), p.getCompletionDate(), p.getDaysToComplete(),
+                        p.getRepaymentMonths(), p.getInterestRate(),
+                        t == null ? null : t.principal(), t == null ? null : t.interest(), t == null ? null : t.totalRepayable(),
+                        t == null ? null : t.monthlyInstalment(), p.getTotalRepaid(), p.getLoanBalance(), p.getArrears(today));
+            }
+            autosize(s, 29);
+
+            List<Receipt> all = receipts.find(LocalDate.of(2000, 1, 1), today.plusYears(1), null, null);
+            s = wb.createSheet("Deposits");
+            header(s, st, "Date", "Receipt No", "Branch", "Client", "Ward", "Account No", "Asset", "Quotation", "Amount", "Captured By");
+            r = 1;
+            for (Receipt x : all) {
+                if (x.isReversed() || x.getType() != ReceiptType.ASSET_DEPOSIT) continue;
+                Project p = x.getProject();
+                row(s, st, r++, x.getReceiptDate(), x.getReceiptNo(), x.getBranch().getName(), x.getPayerName(),
+                        x.getClient().getWard(), p.getAccount().getAccountNo(), p.getAssetLabel(), p.getQuotationCost(),
+                        x.getAmount(), x.getCapturedBy());
+            }
+            autosize(s, 10);
+
             s = wb.createSheet("All receipts");
-            header(s, st, "Date", "Receipt No", "Branch", "Type", "Income?", "Member", "Account No", "Amount", "Months",
+            header(s, st, "Date", "Receipt No", "Branch", "Type", "Income?", "Client", "Account No", "Project", "Amount", "Months",
                     "Payment Method", "Reference", "Captured By", "Source", "Reversed");
             r = 1;
             for (Receipt x : all) {
                 row(s, st, r++, x.getReceiptDate(), x.getReceiptNo(), x.getBranch().getName(), x.getType().getLabel(),
                         x.getType().isIncome() ? "Income" : "Client funds", x.getPayerName(),
-                        x.getAccount() == null ? null : x.getAccount().getAccountNo(), x.getAmount(), x.getMonths(),
+                        x.getAccount() == null ? null : x.getAccount().getAccountNo(),
+                        x.getProject() == null ? null : x.getProject().getAssetLabel(), x.getAmount(), x.getMonths(),
                         x.getPaymentMethod(), x.getReference(), x.getCapturedBy(), x.getSource(), x.isReversed() ? "Yes" : "");
             }
-            autosize(s, 14);
+            autosize(s, 15);
+
+            s = wb.createSheet("Disbursements");
+            header(s, st, "Date", "Branch", "Client", "Account No", "Project", "Paid To", "Amount");
+            r = 1;
+            for (Project p : projects.disbursedBetween(LocalDate.of(2000, 1, 1), today.plusYears(1), null)) {
+                row(s, st, r++, p.getProjectStartDate(), p.getBranch().getName(), p.getClient().getFullName(),
+                        p.getAccount().getAccountNo(), p.getAssetLabel(), p.getDisbursedTo(), p.getDisbursedAmount());
+            }
+            autosize(s, 7);
 
             s = wb.createSheet("Expenditure");
             header(s, st, "Date", "Voucher No", "Branch", "Category", "Description", "Payee", "Amount", "Captured By");
@@ -145,44 +190,51 @@ public class ExcelExportService {
             r++;
             row(s, st, r++, "SURPLUS / (DEFICIT)", m.getSurplus());
             r++;
-            row(s, st, r++, "CLIENT FUNDS RECEIVED (not income)");
-            row(s, st, r++, "Asset finance deposits", t.byType().get(ReceiptType.ASSET_DEPOSIT));
-            row(s, st, r++, "Loan repayments", t.byType().get(ReceiptType.LOAN_REPAYMENT));
+            row(s, st, r++, "CLIENT FUNDS (not income)");
+            row(s, st, r++, "Asset finance deposits received", t.getDeposits());
+            row(s, st, r++, "Loan repayments received", t.getRepayments());
+            row(s, st, r++, "Funds disbursed to projects (loans)", t.disbursementsTotal());
             r++;
-            row(s, st, r++, "New members", t.newMembers());
+            row(s, st, r++, "Net cash (all inflow − all outflow)", t.net());
+            r++;
+            row(s, st, r++, "New SACCO members", t.newMembers());
+            row(s, st, r++, "New clients", t.newClients());
             row(s, st, r, "Accounts opened", t.accountsOpened());
             autosize(s, 2);
 
             s = wb.createSheet("Daily income");
             ReceiptType[] types = ReceiptType.values();
-            Object[] head = new Object[types.length + 4];
+            Object[] head = new Object[types.length + 5];
             head[0] = "Date";
             for (int i = 0; i < types.length; i++) head[i + 1] = types[i].getLabel();
-            head[types.length + 1] = "Total receipts";
+            head[types.length + 1] = "Total inflow";
             head[types.length + 2] = "Expenditure";
-            head[types.length + 3] = "Net";
+            head[types.length + 3] = "Loans disbursed";
+            head[types.length + 4] = "Net";
             header(s, st, java.util.Arrays.stream(head).map(Object::toString).toArray(String[]::new));
             r = 1;
             for (ReportService.DayRow d : m.days()) {
-                Object[] v = new Object[types.length + 4];
+                Object[] v = new Object[types.length + 5];
                 v[0] = d.date();
                 for (int i = 0; i < types.length; i++) v[i + 1] = d.byType().get(types[i]);
                 v[types.length + 1] = d.receipts();
                 v[types.length + 2] = d.expenses();
-                v[types.length + 3] = d.net();
+                v[types.length + 3] = d.disbursements();
+                v[types.length + 4] = d.net();
                 row(s, st, r++, v);
             }
             autosize(s, head.length);
 
             if (!m.branchRows().isEmpty()) {
                 s = wb.createSheet("By district");
-                header(s, st, "District", "New members", "Accounts opened", "Income", "Deposits", "Repayments", "Expenditure", "Net cash");
+                header(s, st, "District", "New members", "Accounts opened", "Income", "Deposits", "Repayments", "Expenditure",
+                        "Loans disbursed", "Net cash");
                 r = 1;
                 for (ReportService.BranchRow b : m.branchRows()) {
                     row(s, st, r++, b.branch().getLabel(), b.newMembers(), b.accountsOpened(), b.income(), b.deposits(),
-                            b.repayments(), b.expenses(), b.net());
+                            b.repayments(), b.expenses(), b.disbursements(), b.net());
                 }
-                autosize(s, 8);
+                autosize(s, 9);
             }
             return bytes(wb);
         }
@@ -202,42 +254,48 @@ public class ExcelExportService {
             header(exp, st, RETURN_EXPENSE_COLUMNS);
 
             Sheet lists = wb.createSheet("Lists");
-            row(lists, st, 0, "Receipt types", "Asset types", "Expense categories", "Payment methods");
+            row(lists, st, 0, "Receipt types", "Asset types", "Expense categories", "Payment methods", "Categories");
             String[] methods = {"Cash", "EcoCash", "Bank transfer", "Swipe", "InnBucks", "OneMoney"};
+            MemberCategory[] cats = MemberCategory.values();
             int max = Math.max(Math.max(ReceiptType.values().length, AssetType.values().length), Math.max(Expense.CATEGORIES.length, methods.length));
             for (int i = 0; i < max; i++) {
                 row(lists, st, i + 1,
                         i < ReceiptType.values().length ? ReceiptType.values()[i].name() : null,
                         i < AssetType.values().length ? AssetType.values()[i].name() : null,
                         i < Expense.CATEGORIES.length ? Expense.CATEGORIES[i] : null,
-                        i < methods.length ? methods[i] : null);
+                        i < methods.length ? methods[i] : null,
+                        i < cats.length ? cats[i].name() : null);
             }
-            autosize(lists, 4);
+            autosize(lists, 5);
             dropdown(rec, "Lists!$A$2:$A$" + (ReceiptType.values().length + 1), 2);
-            dropdown(rec, "Lists!$B$2:$B$" + (AssetType.values().length + 1), 11);
-            dropdown(rec, "Lists!$D$2:$D$" + (methods.length + 1), 17);
+            dropdown(rec, "Lists!$E$2:$E$" + (cats.length + 1), 10);
+            dropdown(rec, "Lists!$B$2:$B$" + (AssetType.values().length + 1), 12);
+            dropdown(rec, "Lists!$D$2:$D$" + (methods.length + 1), 18);
             dropdown(exp, "Lists!$C$2:$C$" + (Expense.CATEGORIES.length + 1), 2);
 
             Sheet acc = wb.createSheet("Accounts");
-            header(acc, st, "Account No", "Member", "National ID", "Asset", "Quotation", "Deposited", "Status", "Loan Balance");
+            header(acc, st, "Account No", "Client", "National ID", "Opening Fee Paid", "Asset Type", "Asset", "Quotation",
+                    "Deposited", "Status", "Loan Balance");
             int r = 1;
-            for (AssetAccount a : accounts.findAllByOrderByOpenedDateDescIdDesc()) {
-                if (!a.getBranch().getId().equals(branchId)) continue;
-                row(acc, st, r++, a.getAccountNo(), a.getMember().getFullName(), a.getMember().getNationalId(),
-                        a.getAssetType() == null ? null : a.getAssetType().getLabel(), a.getQuotationCost(),
-                        a.getTotalDeposited(), a.getStatus().getLabel(), a.getLoanBalance());
+            for (Project p : projects.findAllOrdered()) {
+                if (!p.getBranch().getId().equals(branchId)) continue;
+                row(acc, st, r++, p.getAccount().getAccountNo(), p.getClient().getFullName(), p.getClient().getNationalId(),
+                        p.getAccount().getOpeningFeePaid(), p.getAssetType() == null ? null : p.getAssetType().name(),
+                        p.getAssetDescription(), p.getQuotationCost(), p.getTotalDeposited(), p.getStatus().getLabel(), p.getLoanBalance());
             }
-            autosize(acc, 8);
+            autosize(acc, 10);
 
             Sheet help = wb.createSheet("How to fill");
             String[] lines = {
                     "ZimFete asset finance return — " + b.getLabel(),
                     "One row per receipt on the Receipts sheet, one row per payment on the Expenditure sheet.",
                     "Date: dd/mm/yyyy. Receipt No: the number on your receipt book (required, used to stop double capture).",
-                    "Type: JOINING_FEE ($10), SUBSCRIPTION ($1/month), ACCOUNT_OPENING ($50), ASSET_DEPOSIT, LOAN_REPAYMENT, OTHER_INCOME.",
-                    "New member: fill First Name, Surname, National ID (+ Phone, Gender, Village, Ward) on their first row. Later rows only need the National ID.",
-                    "ACCOUNT_OPENING: put the account number you issued (or leave blank and HQ will issue one), Asset Type, Asset Description, Quotation Cost, Target Date.",
-                    "ASSET_DEPOSIT / LOAN_REPAYMENT: Account No is required (see the Accounts sheet).",
+                    "Type: JOINING_FEE ($10), SUBSCRIPTION ($1/month), ACCOUNT_OPENING ($50, can be paid in parts), ASSET_DEPOSIT, LOAN_REPAYMENT, OTHER_INCOME.",
+                    "New client: fill First Name, Surname, National ID if known, Phone, Gender, Village, Ward on their first row. Later rows need the National ID or the Account No.",
+                    "JOINING_FEE / SUBSCRIPTION are for SACCO members from the veteran community only: fill Category (WAR_VETERAN, WAR_COLLABORATOR, EX_DETAINEE, WIDOW, DESCENDANT).",
+                    "ACCOUNT_OPENING: put the account number you issued (or leave blank and HQ will issue one). Part payments: one row per payment, same Account No.",
+                    "Asset details (Asset Type, Asset Description, Quotation Cost, Target Date) on the opening row or on the first deposit for a new project.",
+                    "ASSET_DEPOSIT / LOAN_REPAYMENT: Account No is required (see the Accounts sheet). If the account has more than one project, fill Asset Type too.",
                     "SUBSCRIPTION: Months is optional, worked out from Amount ($1 per month) if left blank.",
                     "Send the file on the WhatsApp group daily, weekly or monthly. Sending the same rows twice is safe."
             };

@@ -6,6 +6,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import zw.co.zimfete.afs.domain.*;
@@ -19,34 +20,44 @@ public class ReportService {
 
     private final ReceiptRepository receipts;
     private final ExpenseRepository expenses;
-    private final MemberRepository members;
+    private final ClientRepository clients;
     private final AssetAccountRepository accounts;
+    private final ProjectRepository projects;
     private final BranchRepository branches;
 
-    public ReportService(ReceiptRepository receipts, ExpenseRepository expenses, MemberRepository members,
-                         AssetAccountRepository accounts, BranchRepository branches) {
+    public ReportService(ReceiptRepository receipts, ExpenseRepository expenses, ClientRepository clients,
+                         AssetAccountRepository accounts, ProjectRepository projects, BranchRepository branches) {
         this.receipts = receipts;
         this.expenses = expenses;
-        this.members = members;
+        this.clients = clients;
         this.accounts = accounts;
+        this.projects = projects;
         this.branches = branches;
     }
 
     // ---------------------------------------------------------------- cash report (daily or any period)
 
+    /**
+     * Inflow (receipts) and outflow (operating expenditure plus funds disbursed to projects) for a period.
+     * Income is ZimFete's own (fees); deposits and repayments are client funds and shown separately.
+     */
     public record CashReport(LocalDate from, LocalDate to, Branch branch,
-                             List<Receipt> receipts, List<Expense> expenses,
+                             List<Receipt> receipts, List<Expense> expenses, List<Project> disbursements,
                              Map<ReceiptType, BigDecimal> byType, Map<ReceiptType, Long> countByType,
                              Map<String, BigDecimal> byPaymentMethod, Map<String, BigDecimal> expensesByCategory,
                              BigDecimal incomeTotal, BigDecimal collectionsTotal, BigDecimal receiptsTotal,
-                             BigDecimal expensesTotal, BigDecimal net,
-                             long newMembers, long accountsOpened) {
+                             BigDecimal expensesTotal, BigDecimal disbursementsTotal, BigDecimal net,
+                             long newClients, long newMembers, long accountsOpened) {
         public BigDecimal getDeposits() {
             return byType.get(ReceiptType.ASSET_DEPOSIT);
         }
 
         public BigDecimal getRepayments() {
             return byType.get(ReceiptType.LOAN_REPAYMENT);
+        }
+
+        public BigDecimal getOutflowTotal() {
+            return expensesTotal.add(disbursementsTotal);
         }
 
         public String getTitle() {
@@ -61,6 +72,7 @@ public class ReportService {
                 .sorted(Comparator.comparing(Receipt::getReceiptDate).thenComparing(Receipt::getId)).toList();
         List<Expense> es = expenses.find(from, to, branchId).stream()
                 .sorted(Comparator.comparing(Expense::getExpenseDate).thenComparing(Expense::getId)).toList();
+        List<Project> ds = projects.disbursedBetween(from, to, branchId);
 
         Map<ReceiptType, BigDecimal> byType = new EnumMap<>(ReceiptType.class);
         Map<ReceiptType, Long> count = new EnumMap<>(ReceiptType.class);
@@ -81,12 +93,12 @@ public class ReportService {
         BigDecimal collections = sum(byType.entrySet().stream().filter(e -> !e.getKey().isIncome()).map(Map.Entry::getValue));
         BigDecimal total = income.add(collections);
         BigDecimal spent = sum(es.stream().map(Expense::getAmount));
+        BigDecimal disbursed = sum(ds.stream().map(Project::getDisbursedAmount));
 
-        long newMembers = members.countJoined(from, to, branchId);
-        long opened = accounts.countOpened(from, to, branchId);
-
-        return new CashReport(from, to, branch, rs, es, byType, count, byMethod, byCat,
-                income, collections, total, spent, total.subtract(spent), newMembers, opened);
+        return new CashReport(from, to, branch, rs, es, ds, byType, count, byMethod, byCat,
+                income, collections, total, spent, disbursed, total.subtract(spent).subtract(disbursed),
+                clients.countRegistered(from, to, branchId), clients.countJoined(from, to, branchId),
+                accounts.countOpened(from, to, branchId));
     }
 
     /** Plain-text version for pasting into the WhatsApp group. */
@@ -94,7 +106,7 @@ public class ReportService {
         StringBuilder sb = new StringBuilder();
         sb.append("*ZimFete Asset Finance — ").append(r.from().equals(r.to()) ? "Daily" : "Period").append(" Report*\n");
         sb.append(r.getTitle()).append("\n\n");
-        sb.append("*RECEIPTS*\n");
+        sb.append("*INFLOW*\n");
         for (ReceiptType t : ReceiptType.values()) {
             if (r.countByType().get(t) == 0) continue;
             sb.append("• ").append(t.getLabel()).append(" (").append(r.countByType().get(t)).append("): $")
@@ -102,19 +114,21 @@ public class ReportService {
         }
         sb.append("Income (fees): $").append(money(r.incomeTotal())).append("\n");
         sb.append("Deposits & repayments: $").append(money(r.collectionsTotal())).append("\n");
-        sb.append("*Total received: $").append(money(r.receiptsTotal())).append("*\n\n");
-        sb.append("*EXPENDITURE*\n");
-        if (r.expenses().isEmpty()) sb.append("• None\n");
+        sb.append("*Total inflow: $").append(money(r.receiptsTotal())).append("*\n\n");
+        sb.append("*OUTFLOW*\n");
+        if (r.expenses().isEmpty() && r.disbursements().isEmpty()) sb.append("• None\n");
         r.expensesByCategory().forEach((k, v) -> sb.append("• ").append(k).append(": $").append(money(v)).append("\n"));
-        sb.append("*Total spent: $").append(money(r.expensesTotal())).append("*\n\n");
+        r.disbursements().forEach(p -> sb.append("• Loan (project) ").append(p.getClient().getFullName()).append(", ")
+                .append(p.getAssetLabel()).append(": $").append(money(p.getDisbursedAmount())).append("\n"));
+        sb.append("*Total outflow: $").append(money(r.getOutflowTotal())).append("*\n\n");
         sb.append("*NET CASH: $").append(money(r.net())).append("*\n");
-        sb.append("New members: ").append(r.newMembers()).append(" | Accounts opened: ").append(r.accountsOpened()).append("\n");
+        sb.append("New SACCO members: ").append(r.newMembers()).append(" | New clients: ").append(r.newClients())
+                .append(" | Accounts opened: ").append(r.accountsOpened()).append("\n");
         List<Receipt> deposits = r.receipts().stream().filter(x -> x.getType() == ReceiptType.ASSET_DEPOSIT).toList();
         if (!deposits.isEmpty()) {
             sb.append("\n*Deposits*\n");
-            deposits.forEach(d -> sb.append("• ").append(d.getPayerName()).append(" ").append(d.getAccount().getAccountNo())
-                    .append(" (").append(d.getAccount().getAssetType() == null ? "asset" : d.getAccount().getAssetType().getLabel())
-                    .append("): $").append(money(d.getAmount())).append("\n"));
+            deposits.forEach(d -> sb.append("• ").append(d.getPayerName()).append(" ").append(d.getProject().getLabel())
+                    .append(": $").append(money(d.getAmount())).append("\n"));
         }
         return sb.toString();
     }
@@ -122,14 +136,16 @@ public class ReportService {
     // ---------------------------------------------------------------- monthly income & expenditure
 
     public record DayRow(LocalDate date, Map<ReceiptType, BigDecimal> byType, BigDecimal receipts,
-                         BigDecimal expenses, BigDecimal net) {
+                         BigDecimal expenses, BigDecimal disbursements, BigDecimal net) {
     }
 
     public record BranchRow(Branch branch, long newMembers, long accountsOpened, BigDecimal income,
-                            BigDecimal deposits, BigDecimal repayments, BigDecimal expenses, BigDecimal net) {
+                            BigDecimal deposits, BigDecimal repayments, BigDecimal expenses,
+                            BigDecimal disbursements, BigDecimal net) {
     }
 
     public record MonthlyReport(YearMonth month, CashReport totals, List<DayRow> days, List<BranchRow> branchRows) {
+        /** ZimFete's own result: fee income less operating expenditure (disbursements are loans, not costs). */
         public BigDecimal getSurplus() {
             return totals.incomeTotal().subtract(totals.expensesTotal());
         }
@@ -148,16 +164,18 @@ public class ReportService {
             totals.receipts().stream().filter(r -> r.getReceiptDate().equals(day)).forEach(r -> m.merge(r.getType(), r.getAmount(), BigDecimal::add));
             BigDecimal rec = sum(m.values().stream());
             BigDecimal exp = sum(totals.expenses().stream().filter(e -> e.getExpenseDate().equals(day)).map(Expense::getAmount));
-            if (rec.signum() != 0 || exp.signum() != 0) days.add(new DayRow(day, m, rec, exp, rec.subtract(exp)));
+            BigDecimal dis = sum(totals.disbursements().stream().filter(p -> p.getProjectStartDate().equals(day)).map(Project::getDisbursedAmount));
+            if (rec.signum() != 0 || exp.signum() != 0 || dis.signum() != 0) {
+                days.add(new DayRow(day, m, rec, exp, dis, rec.subtract(exp).subtract(dis)));
+            }
         }
 
         List<BranchRow> rows = new ArrayList<>();
         if (branchId == null) {
             for (Branch b : branches.findAllByOrderByHeadOfficeDescNameAsc()) {
                 CashReport c = cashReport(from, to, b.getId());
-                rows.add(new BranchRow(b, c.newMembers(), c.accountsOpened(), c.incomeTotal(),
-                        c.byType().get(ReceiptType.ASSET_DEPOSIT), c.byType().get(ReceiptType.LOAN_REPAYMENT),
-                        c.expensesTotal(), c.net()));
+                rows.add(new BranchRow(b, c.newMembers(), c.accountsOpened(), c.incomeTotal(), c.getDeposits(),
+                        c.getRepayments(), c.expensesTotal(), c.disbursementsTotal(), c.net()));
             }
         }
         return new MonthlyReport(month, totals, days, rows);
@@ -165,20 +183,23 @@ public class ReportService {
 
     // ---------------------------------------------------------------- AFM dashboard
 
-    public record DistrictStats(Branch branch, long members, long accounts, long accountsThisMonth,
-                                BigDecimal depositsTotal, BigDecimal depositsThisMonth,
-                                long saving, long thresholdMet, long inProgress, long completed,
+    public record DistrictStats(Branch branch, long clients, long members, long accounts, long activeAccounts,
+                                long accountsThisMonth, BigDecimal depositsTotal, BigDecimal depositsThisMonth,
+                                long saving, long awaitingApproval, long approved, long inProgress, long completed,
                                 long due, BigDecimal loanBook, BigDecimal arrears) {
         /** All-districts total row. */
         public static DistrictStats total(List<DistrictStats> rows) {
             return new DistrictStats(null,
+                    rows.stream().mapToLong(DistrictStats::clients).sum(),
                     rows.stream().mapToLong(DistrictStats::members).sum(),
                     rows.stream().mapToLong(DistrictStats::accounts).sum(),
+                    rows.stream().mapToLong(DistrictStats::activeAccounts).sum(),
                     rows.stream().mapToLong(DistrictStats::accountsThisMonth).sum(),
                     sum(rows.stream().map(DistrictStats::depositsTotal)),
                     sum(rows.stream().map(DistrictStats::depositsThisMonth)),
                     rows.stream().mapToLong(DistrictStats::saving).sum(),
-                    rows.stream().mapToLong(DistrictStats::thresholdMet).sum(),
+                    rows.stream().mapToLong(DistrictStats::awaitingApproval).sum(),
+                    rows.stream().mapToLong(DistrictStats::approved).sum(),
                     rows.stream().mapToLong(DistrictStats::inProgress).sum(),
                     rows.stream().mapToLong(DistrictStats::completed).sum(),
                     rows.stream().mapToLong(DistrictStats::due).sum(),
@@ -189,45 +210,65 @@ public class ReportService {
 
     public List<DistrictStats> districtStats(LocalDate today) {
         YearMonth ym = YearMonth.from(today);
-        List<AssetAccount> all = accounts.findAll();
-        List<Receipt> monthReceipts = receipts.find(ym.atDay(1), ym.atEndOfMonth(), null, ReceiptType.ASSET_DEPOSIT);
+        List<AssetAccount> allAccounts = accounts.findAll();
+        List<Project> allProjects = projects.findAll();
+        List<Receipt> monthDeposits = receipts.find(ym.atDay(1), ym.atEndOfMonth(), null, ReceiptType.ASSET_DEPOSIT);
         List<DistrictStats> out = new ArrayList<>();
         for (Branch b : branches.findAllByOrderByHeadOfficeDescNameAsc()) {
-            List<AssetAccount> as = all.stream().filter(a -> a.getBranch().getId().equals(b.getId())).toList();
+            List<AssetAccount> as = allAccounts.stream().filter(a -> a.getBranch().getId().equals(b.getId())).toList();
+            List<Project> ps = allProjects.stream().filter(p -> p.getBranch().getId().equals(b.getId())).toList();
             out.add(new DistrictStats(b,
-                    members.countByBranchId(b.getId()),
+                    clients.countByBranchId(b.getId()),
+                    clients.countByBranchIdAndSaccoMemberTrue(b.getId()),
                     as.size(),
+                    as.stream().filter(AssetAccount::isActive).count(),
                     as.stream().filter(a -> YearMonth.from(a.getOpenedDate()).equals(ym)).count(),
-                    sum(as.stream().map(AssetAccount::getTotalDeposited)),
-                    sum(monthReceipts.stream().filter(r -> !r.isReversed() && r.getBranch().getId().equals(b.getId())).map(Receipt::getAmount)),
-                    countStatus(as, ProjectStatus.SAVING),
-                    countStatus(as, ProjectStatus.THRESHOLD_MET),
-                    countStatus(as, ProjectStatus.IN_PROGRESS),
-                    countStatus(as, ProjectStatus.COMPLETED),
-                    as.stream().filter(a -> isDue(a, today, 14)).count(),
-                    sum(as.stream().filter(AssetAccount::isLoanStarted).map(AssetAccount::getLoanBalance)),
-                    sum(as.stream().map(a -> a.getArrears(today)))));
+                    sum(ps.stream().map(Project::getTotalDeposited)),
+                    sum(monthDeposits.stream().filter(r -> !r.isReversed() && r.getBranch().getId().equals(b.getId())).map(Receipt::getAmount)),
+                    countStatus(ps, ProjectStatus.SAVING),
+                    countStatus(ps, ProjectStatus.THRESHOLD_MET),
+                    countStatus(ps, ProjectStatus.APPROVED),
+                    countStatus(ps, ProjectStatus.IN_PROGRESS),
+                    countStatus(ps, ProjectStatus.COMPLETED),
+                    ps.stream().filter(p -> isDue(p, today, 14)).count(),
+                    sum(ps.stream().filter(Project::isLoanStarted).map(Project::getLoanBalance)),
+                    sum(ps.stream().map(p -> p.getArrears(today)))));
         }
         return out;
     }
 
+    /** SACCO members per district and category: who will be eligible when the grant comes. */
+    public record MembershipRow(Branch branch, Map<MemberCategory, Long> byCategory, long total) {
+    }
+
+    public List<MembershipRow> membership() {
+        List<Client> members = clients.search(null, null, true, null);
+        List<MembershipRow> rows = new ArrayList<>();
+        for (Branch b : branches.findAllByOrderByHeadOfficeDescNameAsc()) {
+            Map<MemberCategory, Long> m = new EnumMap<>(MemberCategory.class);
+            for (MemberCategory c : MemberCategory.values()) if (c.isVeteranCommunity()) m.put(c, 0L);
+            members.stream().filter(c -> c.getBranch().getId().equals(b.getId())).forEach(c -> m.merge(c.getCategory(), 1L, Long::sum));
+            rows.add(new MembershipRow(b, m, m.values().stream().mapToLong(Long::longValue).sum()));
+        }
+        return rows;
+    }
+
     /** Not yet started and the client's target date falls within {@code withinDays} (or has passed). */
-    public static boolean isDue(AssetAccount a, LocalDate today, int withinDays) {
-        return (a.getStatus() == ProjectStatus.SAVING || a.getStatus() == ProjectStatus.THRESHOLD_MET)
-                && a.getTargetDate() != null && !a.getTargetDate().isAfter(today.plusDays(withinDays));
+    public static boolean isDue(Project p, LocalDate today, int withinDays) {
+        return p.getStatus().isPreStart() && p.getTargetDate() != null && !p.getTargetDate().isAfter(today.plusDays(withinDays));
     }
 
-    public List<AssetAccount> dueProjects(LocalDate today, int withinDays, Long branchId) {
-        return accounts.findAll().stream()
-                .filter(a -> branchId == null || a.getBranch().getId().equals(branchId))
-                .filter(a -> isDue(a, today, withinDays))
-                .sorted(Comparator.comparing(AssetAccount::getTargetDate)).toList();
+    public List<Project> dueProjects(LocalDate today, int withinDays, Long branchId) {
+        return projects.findAll().stream()
+                .filter(p -> branchId == null || p.getBranch().getId().equals(branchId))
+                .filter(p -> isDue(p, today, withinDays))
+                .sorted(Comparator.comparing(Project::getTargetDate)).toList();
     }
 
-    public List<AssetAccount> byStatus(ProjectStatus status, Long branchId) {
-        return accounts.findAllByOrderByOpenedDateDescIdDesc().stream()
-                .filter(a -> branchId == null || a.getBranch().getId().equals(branchId))
-                .filter(a -> status == null || a.getStatus() == status).toList();
+    public List<Project> byStatus(ProjectStatus status, Long branchId) {
+        return projects.findAllOrdered().stream()
+                .filter(p -> branchId == null || p.getBranch().getId().equals(branchId))
+                .filter(p -> status == null || p.getStatus() == status).toList();
     }
 
     public Map<String, Long> accountsOpenedBy(List<AssetAccount> list) {
@@ -237,11 +278,11 @@ public class ReportService {
 
     // ---------------------------------------------------------------- helpers
 
-    private static long countStatus(List<AssetAccount> as, ProjectStatus s) {
-        return as.stream().filter(a -> a.getStatus() == s).count();
+    private static long countStatus(List<Project> ps, ProjectStatus s) {
+        return ps.stream().filter(p -> p.getStatus() == s).count();
     }
 
-    public static BigDecimal sum(java.util.stream.Stream<BigDecimal> s) {
+    public static BigDecimal sum(Stream<BigDecimal> s) {
         return s.filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 

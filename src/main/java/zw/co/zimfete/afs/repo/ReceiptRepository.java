@@ -22,16 +22,21 @@ public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
     List<Receipt> find(@Param("from") LocalDate from, @Param("to") LocalDate to,
                        @Param("branchId") Long branchId, @Param("type") ReceiptType type);
 
-    List<Receipt> findByMemberIdOrderByReceiptDateDescIdDesc(Long memberId);
+    List<Receipt> findByClientIdOrderByReceiptDateDescIdDesc(Long clientId);
 
     List<Receipt> findByAccountIdOrderByReceiptDateAscIdAsc(Long accountId);
 
-    @Query("select coalesce(sum(r.amount), 0) from Receipt r where r.account.id = :accountId and r.type = :type and r.reversed = false")
-    BigDecimal sumForAccount(@Param("accountId") Long accountId, @Param("type") ReceiptType type);
+    List<Receipt> findByProjectIdOrderByReceiptDateAscIdAsc(Long projectId);
 
-    @Query("select coalesce(sum(r.months), 0) from Receipt r where r.member.id = :memberId and r.type = zw.co.zimfete.afs.domain.ReceiptType.SUBSCRIPTION and r.reversed = false")
-    long sumSubscriptionMonths(@Param("memberId") Long memberId);
+    @Query("select coalesce(sum(r.amount), 0) from Receipt r where r.project.id = :projectId and r.type = :type and r.reversed = false")
+    BigDecimal sumForProject(@Param("projectId") Long projectId, @Param("type") ReceiptType type);
 
-    @Query("select count(r) from Receipt r where r.member.id = :memberId and r.type = zw.co.zimfete.afs.domain.ReceiptType.JOINING_FEE and r.reversed = false")
-    long countJoiningFees(@Param("memberId") Long memberId);
+    @Query("select coalesce(sum(r.amount), 0) from Receipt r where r.account.id = :accountId and r.type = zw.co.zimfete.afs.domain.ReceiptType.ACCOUNT_OPENING and r.reversed = false")
+    BigDecimal sumOpeningFees(@Param("accountId") Long accountId);
+
+    @Query("select coalesce(sum(r.months), 0) from Receipt r where r.client.id = :clientId and r.type = zw.co.zimfete.afs.domain.ReceiptType.SUBSCRIPTION and r.reversed = false")
+    long sumSubscriptionMonths(@Param("clientId") Long clientId);
+
+    @Query("select count(r) from Receipt r where r.client.id = :clientId and r.type = zw.co.zimfete.afs.domain.ReceiptType.JOINING_FEE and r.reversed = false")
+    long countJoiningFees(@Param("clientId") Long clientId);
 }

@@ -1,8 +1,12 @@
 package zw.co.zimfete.afs.service;
 
 import java.time.LocalDate;
+import zw.co.zimfete.afs.domain.MemberCategory;
 
-/** New member form: personal details plus what they paid on the day. */
+/**
+ * New client form: personal details, veteran category, and the optional parts done on the same visit —
+ * joining the SACCO (veteran community), opening an asset finance account, and the first project.
+ */
 public class RegistrationRequest {
     private Long branchId;
     private String firstName;
@@ -14,18 +18,18 @@ public class RegistrationRequest {
     private String ward;
     private String district;
     private String nextOfKin;
-    private LocalDate dateJoined = LocalDate.now();
+    private LocalDate dateRegistered = LocalDate.now();
+    private MemberCategory category = MemberCategory.NOT_VETERAN;
     private String notes;
     private String capturedBy;
     private String paymentMethod = "Cash";
 
-    private boolean payJoiningFee = true;
-    private String joiningReceiptNo;
-    private Integer subsMonths = 1;
-    private String subsReceiptNo;
+    private boolean joinSacco;
+    private MembershipRequest membership = new MembershipRequest();
 
     private boolean openAccount;
     private AccountRequest account = new AccountRequest();
+    private ProjectRequest project = new ProjectRequest();
 
     public Long getBranchId() { return branchId; }
     public void setBranchId(Long branchId) { this.branchId = branchId; }
@@ -47,24 +51,24 @@ public class RegistrationRequest {
     public void setDistrict(String district) { this.district = district; }
     public String getNextOfKin() { return nextOfKin; }
     public void setNextOfKin(String nextOfKin) { this.nextOfKin = nextOfKin; }
-    public LocalDate getDateJoined() { return dateJoined; }
-    public void setDateJoined(LocalDate dateJoined) { this.dateJoined = dateJoined; }
+    public LocalDate getDateRegistered() { return dateRegistered; }
+    public void setDateRegistered(LocalDate dateRegistered) { this.dateRegistered = dateRegistered; }
+    public MemberCategory getCategory() { return category; }
+    public void setCategory(MemberCategory category) { this.category = category; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
     public String getCapturedBy() { return capturedBy; }
     public void setCapturedBy(String capturedBy) { this.capturedBy = capturedBy; }
     public String getPaymentMethod() { return paymentMethod; }
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
-    public boolean isPayJoiningFee() { return payJoiningFee; }
-    public void setPayJoiningFee(boolean payJoiningFee) { this.payJoiningFee = payJoiningFee; }
-    public String getJoiningReceiptNo() { return joiningReceiptNo; }
-    public void setJoiningReceiptNo(String joiningReceiptNo) { this.joiningReceiptNo = joiningReceiptNo; }
-    public Integer getSubsMonths() { return subsMonths; }
-    public void setSubsMonths(Integer subsMonths) { this.subsMonths = subsMonths; }
-    public String getSubsReceiptNo() { return subsReceiptNo; }
-    public void setSubsReceiptNo(String subsReceiptNo) { this.subsReceiptNo = subsReceiptNo; }
+    public boolean isJoinSacco() { return joinSacco; }
+    public void setJoinSacco(boolean joinSacco) { this.joinSacco = joinSacco; }
+    public MembershipRequest getMembership() { return membership; }
+    public void setMembership(MembershipRequest membership) { this.membership = membership; }
     public boolean isOpenAccount() { return openAccount; }
     public void setOpenAccount(boolean openAccount) { this.openAccount = openAccount; }
     public AccountRequest getAccount() { return account; }
     public void setAccount(AccountRequest account) { this.account = account; }
+    public ProjectRequest getProject() { return project; }
+    public void setProject(ProjectRequest project) { this.project = project; }
 }

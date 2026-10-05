@@ -1,30 +1,31 @@
 package zw.co.zimfete.afs.domain;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 
-/** The clients database: one row per SACCO member. */
+/**
+ * The clients database: everyone ZimFete deals with. A client from the veteran community may also be a SACCO
+ * member (joining fee $10, subscription $1 a month). Asset finance needs an account whether or not the client
+ * is a member.
+ */
 @Entity
-public class Member {
+public class Client {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private String memberNo;
+    private String clientNo;
 
-    @NotBlank
     @Column(nullable = false)
     private String firstName;
 
-    @NotBlank
-    @Column(nullable = false)
     private String surname;
 
-    @NotBlank
-    @Column(nullable = false, unique = true)
+    /** Optional: the old registers never captured it. Unique when present. */
+    @Column(unique = true)
     private String nationalId;
 
     private String gender;
@@ -38,31 +39,44 @@ public class Member {
     private Branch branch;
 
     @Column(nullable = false)
-    private LocalDate dateJoined;
+    private LocalDate dateRegistered;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MemberCategory category = MemberCategory.NOT_VETERAN;
+
+    /** War veteran / collaborator registration number, if known. */
+    private String veteranRef;
+
+    /** For widows and descendants: the veteran they are related to. */
+    private String relatedVeteran;
+
+    /** SACCO member (veteran community only). */
+    private boolean saccoMember;
+
+    private LocalDate memberSince;
     private boolean joiningFeePaid;
 
-    /** Last month (first day of the month) covered by the $1 monthly subscription; null if none paid. */
+    /** Last month (first day of the month) covered by subscriptions; null if none paid. */
     private LocalDate subsPaidUntil;
 
     @Column(length = 1000)
     private String notes;
 
     public String getFullName() {
-        return (firstName + " " + surname).trim();
+        return (firstName + (surname == null ? "" : " " + surname)).trim();
     }
 
-    /** Whole months of subscription owed up to and including the given month. */
+    /** Whole months of subscription owed up to and including the given month; 0 for non-members. */
     public int subsMonthsOwed(LocalDate asOf) {
-        YearMonth due = YearMonth.from(asOf);
-        YearMonth paid = subsPaidUntil != null ? YearMonth.from(subsPaidUntil) : YearMonth.from(dateJoined).minusMonths(1);
-        long owed = paid.until(due, java.time.temporal.ChronoUnit.MONTHS);
-        return (int) Math.max(0, owed);
+        if (!saccoMember || memberSince == null) return 0;
+        YearMonth paid = subsPaidUntil != null ? YearMonth.from(subsPaidUntil) : YearMonth.from(memberSince).minusMonths(1);
+        return (int) Math.max(0, paid.until(YearMonth.from(asOf), ChronoUnit.MONTHS));
     }
 
     public Long getId() { return id; }
-    public String getMemberNo() { return memberNo; }
-    public void setMemberNo(String memberNo) { this.memberNo = memberNo; }
+    public String getClientNo() { return clientNo; }
+    public void setClientNo(String clientNo) { this.clientNo = clientNo; }
     public String getFirstName() { return firstName; }
     public void setFirstName(String firstName) { this.firstName = firstName; }
     public String getSurname() { return surname; }
@@ -83,8 +97,18 @@ public class Member {
     public void setNextOfKin(String nextOfKin) { this.nextOfKin = nextOfKin; }
     public Branch getBranch() { return branch; }
     public void setBranch(Branch branch) { this.branch = branch; }
-    public LocalDate getDateJoined() { return dateJoined; }
-    public void setDateJoined(LocalDate dateJoined) { this.dateJoined = dateJoined; }
+    public LocalDate getDateRegistered() { return dateRegistered; }
+    public void setDateRegistered(LocalDate dateRegistered) { this.dateRegistered = dateRegistered; }
+    public MemberCategory getCategory() { return category; }
+    public void setCategory(MemberCategory category) { this.category = category; }
+    public String getVeteranRef() { return veteranRef; }
+    public void setVeteranRef(String veteranRef) { this.veteranRef = veteranRef; }
+    public String getRelatedVeteran() { return relatedVeteran; }
+    public void setRelatedVeteran(String relatedVeteran) { this.relatedVeteran = relatedVeteran; }
+    public boolean isSaccoMember() { return saccoMember; }
+    public void setSaccoMember(boolean saccoMember) { this.saccoMember = saccoMember; }
+    public LocalDate getMemberSince() { return memberSince; }
+    public void setMemberSince(LocalDate memberSince) { this.memberSince = memberSince; }
     public boolean isJoiningFeePaid() { return joiningFeePaid; }
     public void setJoiningFeePaid(boolean joiningFeePaid) { this.joiningFeePaid = joiningFeePaid; }
     public LocalDate getSubsPaidUntil() { return subsPaidUntil; }
