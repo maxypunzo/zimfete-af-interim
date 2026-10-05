@@ -120,8 +120,47 @@ class ExcelImportTest {
             }
             assertThat(byLabel.get("Asset finance deposit")).isEqualTo(500);
             assertThat(byLabel.get("TOTAL RECEIVED")).isEqualTo(560);
-            assertThat(byLabel.get("Total spent")).isEqualTo(5);
+            assertThat(byLabel.get("TOTAL SPENT (Expenditure)")).isEqualTo(5);
             assertThat(byLabel.get("NET CASH (received − spent)")).isEqualTo(555);
+        }
+    }
+
+    @Test
+    void checkColumnExplainsWhatIsWrong() throws Exception {
+        Branch gmz = branches.findByCode("GMZ").orElseThrow();
+        try (Workbook wb = WorkbookFactory.create(new ByteArrayInputStream(export.districtReturnTemplate(gmz.getId())))) {
+            Sheet s = wb.getSheet("Receipts");
+            LocalDate d = LocalDate.of(2026, 10, 5);
+            Object[][] rows = {
+                    // type, account, name, category, amount → expected check
+                    {"ASSET_DEPOSIT", null, "Rudo", null, 100.0, "Account No needed"},
+                    {"JOINING_FEE", null, "Tendai", null, 10.0, "Category needed (members only)"},
+                    {"JOINING_FEE", null, "Tendai", "WAR_VETERAN", 20.0, "Joining fee is $10"},
+                    {"ACCOUNT_OPENING", "GMZ2601ME", "Rudo", null, 60.0, "Opening fee is at most $50"},
+                    {"ACCOUNT_OPENING", "GMZ2601ME", "Rudo", null, 50.0, "OK"},
+                    {"ASSET_DEPOSIT", "GMZ2601ME", null, null, 300.0, "OK"},
+                    {"LOAN_REPAYMENT", "GMZ2699ME", null, null, 40.0, "Account No not on the Accounts list: check it"},
+            };
+            for (int i = 0; i < rows.length; i++) {
+                Row r = s.getRow(i + 1);
+                r.getCell(0).setCellValue(d);
+                r.getCell(1).setCellValue("R" + i);
+                r.getCell(2).setCellValue((String) rows[i][0]);
+                if (rows[i][1] != null) r.getCell(12).setCellValue((String) rows[i][1]);
+                if (rows[i][2] != null) r.getCell(3).setCellValue((String) rows[i][2]);
+                if (rows[i][3] != null) r.getCell(11).setCellValue((String) rows[i][3]);
+                r.getCell(17).setCellValue((Double) rows[i][4]);
+            }
+            Row missingDate = s.getRow(rows.length + 1);
+            missingDate.getCell(1).setCellValue("R99");
+            FormulaEvaluator ev = wb.getCreationHelper().createFormulaEvaluator();
+            ev.evaluateAll();
+            for (int i = 0; i < rows.length; i++) {
+                assertThat(s.getRow(i + 1).getCell(22).getStringCellValue()).as("row " + (i + 2)).isEqualTo(rows[i][5]);
+            }
+            assertThat(s.getRow(rows.length + 1).getCell(22).getStringCellValue()).isEqualTo("Date missing");
+            assertThat(s.getRow(rows.length + 2).getCell(22).getStringCellValue()).isEmpty(); // untouched rows stay blank
+            assertThat(s.getDataValidations()).hasSizeGreaterThanOrEqualTo(10);
         }
     }
 

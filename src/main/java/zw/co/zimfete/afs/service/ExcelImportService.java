@@ -341,6 +341,7 @@ public class ExcelImportService {
             if (r.getRowNum() == 0) continue;
             boolean any = false;
             for (Cell cell : r) {
+                if (cell.getCellType() == CellType.FORMULA) continue; // the workbook's own Check column
                 if (!formatter.formatCellValue(cell).isBlank()) {
                     any = true;
                     break;
