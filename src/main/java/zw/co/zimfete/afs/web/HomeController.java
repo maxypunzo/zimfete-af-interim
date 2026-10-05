@@ -33,7 +33,9 @@ public class HomeController {
         model.addAttribute("approved", reports.byStatus(ProjectStatus.APPROVED, null));
         model.addAttribute("due", reports.dueProjects(today, 14, null));
         model.addAttribute("todayReport", reports.cashReport(today, today, null));
-        model.addAttribute("recent", receipts.find(today.minusDays(7), today, null, null).stream().limit(10).toList());
+        // balances brought forward from the old register are not receipts
+        model.addAttribute("recent", receipts.find(today.minusDays(7), today, null, null).stream()
+                .filter(r -> r.isCash()).limit(10).toList());
         return "dashboard";
     }
 }

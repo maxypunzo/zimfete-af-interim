@@ -20,7 +20,7 @@
       <dt>Received from</dt><dd th:text="${r.payerName}"></dd>
       <dt th:if="${r.client}">Client no</dt><dd th:if="${r.client}" th:text="${r.client.clientNo} + (${r.client.nationalId} != null ? ' · ID ' + ${r.client.nationalId} : '')"></dd>
       <dt>For</dt><dd th:text="${r.type.label} + (${r.months} != null ? ' — ' + ${r.months} + ' month(s)' : '')"></dd>
-      <dt th:if="${r.account}">Account</dt><dd th:if="${r.account}" th:text="${r.project != null ? r.project.label : r.account.accountNo}"></dd>
+      <dt th:if="${r.account}">Account</dt><dd th:if="${r.account}" th:text="${r.project != null ? r.project.label : r.account.numberLabel}"></dd>
       <dt>Paid by</dt><dd th:text="${r.paymentMethod} + (${r.reference} != null ? ' · ' + ${r.reference} : '')"></dd>
     </dl>
     <div class="amt" th:text="'USD ' + ${#numbers.formatDecimal(r.amount, 1, 'COMMA', 2, 'POINT')}"></div>

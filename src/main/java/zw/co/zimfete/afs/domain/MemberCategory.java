@@ -10,7 +10,9 @@ public enum MemberCategory {
     EX_DETAINEE("Ex-political prisoner / detainee / restrictee", "EPD"),
     WIDOW("Widow / widower of a veteran", "Widow"),
     DESCENDANT("Child / descendant of a veteran", "Desc"),
-    NOT_VETERAN("Not veteran community", "-");
+    NOT_VETERAN("Not veteran community", "-"),
+    /** Brought over from the old register, which did not record categories: to be confirmed. */
+    UNKNOWN("Not recorded (to confirm)", "?");
 
     private final String label;
     private final String shortLabel;
@@ -22,7 +24,7 @@ public enum MemberCategory {
 
     public String getLabel() { return label; }
     public String getShortLabel() { return shortLabel; }
-    public boolean isVeteranCommunity() { return this != NOT_VETERAN; }
+    public boolean isVeteranCommunity() { return this != NOT_VETERAN && this != UNKNOWN; }
 
     /** Lenient lookup for imports: accepts the name, label or the usual abbreviations (WV, WC, widow...). */
     public static MemberCategory parse(String text) {

@@ -87,9 +87,9 @@ public class ProjectController {
     public String start(@PathVariable Long id, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
                         @RequestParam Integer months, @RequestParam(required = false) BigDecimal rate,
                         @RequestParam(required = false) BigDecimal disbursedAmount, @RequestParam(required = false) String disbursedTo,
-                        RedirectAttributes ra) {
+                        @RequestParam(required = false) String rateDecision, RedirectAttributes ra) {
         return act(id, ra, () -> {
-            Project p = projectService.start(id, startDate, months, rate, disbursedAmount, disbursedTo);
+            Project p = projectService.start(id, startDate, months, rate, disbursedAmount, disbursedTo, rateDecision);
             return "Funds disbursed and loan fixed: $" + p.getLoanTerms().totalRepayable() + " over " + months + " months ($"
                     + p.getLoanTerms().monthlyInstalment() + "/month).";
         });

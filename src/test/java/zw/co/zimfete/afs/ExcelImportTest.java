@@ -35,23 +35,23 @@ class ExcelImportTest {
         byte[] filled;
         try (Workbook wb = WorkbookFactory.create(new ByteArrayInputStream(template))) {
             Sheet s = wb.getSheet("Receipts");
-            // Date, Receipt No, Type, First, Surname, ID, Phone, Gender, Village, Ward, Category, Account No, Asset Type,
-            // Asset Desc, Quotation, Target Date, Amount, Months, Method, Clerk, Notes
+            // Date, Receipt No, Type, First, Surname, ID, Phone, Gender, Village, Ward, District/Location, Category, Account No,
+            // Asset Type, Asset Desc, Quotation, Target Date, Amount, Months, Method, Clerk, Notes
             // a war veteran joins (no national ID in the old registers)
-            row(s, 1, date, "4817", "JOINING_FEE", "Cyrilo", "Chizengwe", null, "0772903006", "Male", "Loquate", "8", "WV",
-                    null, null, null, null, null, 10, null, "Cash", "Clerk MDA", null);
+            row(s, 1, date, "4817", "JOINING_FEE", "Cyrilo", "Chizengwe", null, "0772903006", "Male", "Loquate", "8", "Harare",
+                    "WV", null, null, null, null, null, 10, null, "Cash", "Clerk MDA", null);
             // a non-member opens an account, paying the fee in two parts, then deposits for two projects
             row(s, 2, date, "4818", "ACCOUNT_OPENING", "Hebert", "Mutema", null, "0773103214", null, null, null, null,
-                    "MDA2606ME", "BOREHOLE", "Borehole drilling", 1500, null, 20, null, "Cash", "Clerk MDA", null);
+                    null, "MDA2606ME", "BOREHOLE", "Borehole drilling", 1500, null, 20, null, "Cash", "Clerk MDA", null);
             row(s, 3, date, "4819", "ACCOUNT_OPENING", null, null, null, null, null, null, null, null,
-                    "MDA2606ME", null, null, null, null, 30, null, "Cash", "Clerk MDA", null);
+                    null, "MDA2606ME", null, null, null, null, 30, null, "Cash", "Clerk MDA", null);
             row(s, 4, date, "4820", "ASSET_DEPOSIT", null, null, null, null, null, null, null, null,
-                    "MDA2606ME", null, null, null, null, 800, null, "EcoCash", "Clerk MDA", null);
+                    null, "MDA2606ME", null, null, null, null, 800, null, "EcoCash", "Clerk MDA", null);
             row(s, 5, date, "4821", "ASSET_DEPOSIT", null, null, null, null, null, null, null, null,
-                    "MDA2606ME", "PIGGERY", "Pig sty", 600, null, 100, null, "Cash", "Clerk MDA", null);
+                    null, "MDA2606ME", "PIGGERY", "Pig sty", 600, null, 100, null, "Cash", "Clerk MDA", null);
             // subscription by a non-member is refused
             row(s, 6, date, "4822", "SUBSCRIPTION", "Hebert", "Mutema", null, null, null, null, null, null,
-                    null, null, null, null, null, 1, null, "Cash", "Clerk MDA", null);
+                    null, null, null, null, null, null, 1, null, "Cash", "Clerk MDA", null);
             Sheet e = wb.getSheet("Expenditure");
             row(e, 1, date, "V1", "Airtime & travel", "Airtime", "Econet", 1, "Clerk MDA");
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -67,6 +67,8 @@ class ExcelImportTest {
         assertThat(vet.isSaccoMember()).isTrue();
         assertThat(vet.getCategory()).isEqualTo(MemberCategory.WAR_VETERAN);
         assertThat(vet.isJoiningFeePaid()).isTrue();
+        assertThat(vet.getDistrict()).isEqualTo("Harare"); // assisted by Marondera, lives outside our branch areas
+        assertThat(vet.getBranch().getCode()).isEqualTo("MDA");
 
         AssetAccount a = accounts.findByAccountNoIgnoreCase("MDA2606ME").orElseThrow();
         assertThat(a.getClient().isSaccoMember()).isFalse();
@@ -82,6 +84,45 @@ class ExcelImportTest {
         assertThat(again.getSkipped()).isEqualTo(6);
 
         assertThat(export.masterRegister(LocalDate.now())).isNotEmpty();
+
+        // the same file uploaded under another branch is refused
+        Branch wed = branches.findByCode("WED").orElseThrow();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> importer.importReturn(new ByteArrayInputStream(filled), wed.getId()))
+                .hasMessageContaining("MDA's file");
+    }
+
+    @Test
+    void summarySheetAddsUpTheClerksEntries() throws Exception {
+        Branch mtk = branches.findByCode("MTK").orElseThrow();
+        try (Workbook wb = WorkbookFactory.create(new ByteArrayInputStream(export.districtReturnTemplate(mtk.getId())))) {
+            Sheet s = wb.getSheet("Receipts");
+            LocalDate d = LocalDate.of(2026, 10, 5);
+            String[] types = {"JOINING_FEE", "ACCOUNT_OPENING", "ASSET_DEPOSIT", "ASSET_DEPOSIT"};
+            double[] amounts = {10, 50, 300, 200};
+            for (int i = 0; i < types.length; i++) {
+                Row r = s.getRow(i + 1);
+                r.getCell(0).setCellValue(d);
+                r.createCell(2).setCellValue(types[i]);
+                r.getCell(17).setCellValue(amounts[i]);
+            }
+            Row e = wb.getSheet("Expenditure").getRow(1);
+            e.getCell(0).setCellValue(d);
+            e.getCell(5).setCellValue(5);
+            Sheet sum = wb.getSheet("Summary");
+            sum.getRow(2).getCell(1).setCellValue(d);
+            sum.getRow(3).getCell(1).setCellValue(d);
+            FormulaEvaluator ev = wb.getCreationHelper().createFormulaEvaluator();
+            ev.evaluateAll();
+            java.util.Map<String, Double> byLabel = new java.util.HashMap<>();
+            for (Row r : sum) {
+                if (r.getCell(0) == null || r.getCell(2) == null || r.getCell(2).getCellType() != CellType.FORMULA) continue;
+                byLabel.put(r.getCell(0).getStringCellValue(), r.getCell(2).getNumericCellValue());
+            }
+            assertThat(byLabel.get("Asset finance deposit")).isEqualTo(500);
+            assertThat(byLabel.get("TOTAL RECEIVED")).isEqualTo(560);
+            assertThat(byLabel.get("Total spent")).isEqualTo(5);
+            assertThat(byLabel.get("NET CASH (received − spent)")).isEqualTo(555);
+        }
     }
 
     private static void row(Sheet s, int idx, Object... values) {

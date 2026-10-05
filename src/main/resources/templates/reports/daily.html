@@ -42,6 +42,8 @@
         <tr class="total"><td>Operating expenditure</td><td class="r" th:text="${#numbers.formatDecimal(r.expensesTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
         <tr th:each="p : ${r.disbursements}"><td th:text="'Loan (project): ' + ${p.client.fullName} + ', ' + ${p.assetLabel}"></td>
           <td class="r" th:text="${#numbers.formatDecimal(p.disbursedAmount, 1, 'COMMA', 2, 'POINT')}"></td></tr>
+        <tr th:each="e : ${r.oldDisbursements}"><td th:text="'Loan (project), old cash book: ' + (${e.payee} ?: '') + ', ' + (${e.description} ?: '')"></td>
+          <td class="r" th:text="${#numbers.formatDecimal(e.amount, 1, 'COMMA', 2, 'POINT')}"></td></tr>
         <tr class="total"><td>Funds disbursed to projects</td><td class="r" th:text="${#numbers.formatDecimal(r.disbursementsTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
         <tr class="total"><td>TOTAL OUTFLOW</td><td class="r" th:text="${#numbers.formatDecimal(r.outflowTotal, 1, 'COMMA', 2, 'POINT')}"></td></tr>
         <tr class="total"><td>NET CASH (inflow − outflow)</td><td class="r" th:classappend="${r.net.signum() < 0} ? 'red'" th:text="${#numbers.formatDecimal(r.net, 1, 'COMMA', 2, 'POINT')}"></td></tr>
@@ -63,7 +65,7 @@
       <td th:text="${x.branch.name}"></td>
       <td th:text="${x.payerName}"></td>
       <td th:text="${x.type.label}"></td>
-      <td th:text="${x.project != null ? x.project.label : (x.account != null ? x.account.accountNo : '')}"></td>
+      <td th:text="${x.project != null ? x.project.label : (x.account != null ? x.account.numberLabel : '')}"></td>
       <td class="r" th:text="${#numbers.formatDecimal(x.amount, 1, 'COMMA', 2, 'POINT')}"></td>
     </tr>
     <tr th:if="${#lists.isEmpty(r.receipts)}"><td colspan="7" class="muted">No receipts.</td></tr>

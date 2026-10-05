@@ -12,6 +12,8 @@ import zw.co.zimfete.afs.domain.ReceiptType;
 public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
     boolean existsByBranchIdAndReceiptNoIgnoreCase(Long branchId, String receiptNo);
 
+    boolean existsBySource(String source);
+
     @Query("""
             select r from Receipt r
             where r.receiptDate between :from and :to

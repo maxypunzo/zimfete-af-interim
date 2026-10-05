@@ -28,8 +28,15 @@ public class GlobalModel {
         binder.registerCustomEditor(String.class, new StringTrimmerEditor(true));
     }
 
+    /** Branches offered when capturing. */
     @ModelAttribute("branches")
     public List<Branch> branches() {
+        return branches.findAllByOrderByHeadOfficeDescNameAsc().stream().filter(Branch::isOperating).toList();
+    }
+
+    /** Branches offered in report filters: also historical locations such as Harare. */
+    @ModelAttribute("allBranches")
+    public List<Branch> allBranches() {
         return branches.findAllByOrderByHeadOfficeDescNameAsc();
     }
 

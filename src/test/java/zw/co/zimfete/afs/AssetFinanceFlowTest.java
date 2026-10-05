@@ -151,9 +151,13 @@ class AssetFinanceFlowTest {
         assertThat(p.getStatus()).isEqualTo(ProjectStatus.THRESHOLD_MET);
         assertThat(reportService.byStatus(ProjectStatus.THRESHOLD_MET, null)).contains(p);
 
-        assertThatThrownBy(() -> projectService.start(p.getId(), day, 4, null, null, null)).hasMessageContaining("committee must approve");
+        assertThatThrownBy(() -> projectService.start(p.getId(), day, 4, null, null, null, null)).hasMessageContaining("committee must approve");
         projectService.approve(p.getId(), day, null);
-        projectService.start(p.getId(), day, 4, new BigDecimal("20"), null, "Drillers Ltd");
+        // 30% is policy; another rate is a committee decision that must be recorded
+        assertThatThrownBy(() -> projectService.start(p.getId(), day, 4, new BigDecimal("20"), null, "Drillers Ltd", null))
+                .hasMessageContaining("committee decision");
+        projectService.start(p.getId(), day, 4, new BigDecimal("20"), null, "Drillers Ltd", "Committee minute 12/2026");
+        assertThat(p.getRateDecision()).isEqualTo("Committee minute 12/2026");
         assertThat(p.getStatus()).isEqualTo(ProjectStatus.IN_PROGRESS);
         assertThat(p.getLoanTerms().totalRepayable()).isEqualByComparingTo("1038.00");
         assertThat(p.getDisbursedAmount()).isEqualByComparingTo("1825");

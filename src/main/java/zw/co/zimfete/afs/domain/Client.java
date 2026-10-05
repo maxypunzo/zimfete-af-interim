@@ -38,7 +38,7 @@ public class Client {
     @ManyToOne(optional = false)
     private Branch branch;
 
-    @Column(nullable = false)
+    /** Blank for some records brought over from the old register. */
     private LocalDate dateRegistered;
 
     @Enumerated(EnumType.STRING)

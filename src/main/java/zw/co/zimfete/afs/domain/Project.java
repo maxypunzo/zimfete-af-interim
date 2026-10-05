@@ -68,6 +68,14 @@ public class Project {
     @Column(precision = 14, scale = 2)
     private BigDecimal loanInterest;
 
+    /** Monthly instalment as agreed/recorded; when blank it is the total spread evenly over the months. */
+    @Column(precision = 14, scale = 2)
+    private BigDecimal instalmentAmount;
+
+    /** Why the rate differs from policy: a committee decision. */
+    @Column(length = 500)
+    private String rateDecision;
+
     @Column(precision = 14, scale = 2, nullable = false)
     private BigDecimal totalDeposited = BigDecimal.ZERO;
 
@@ -94,7 +102,7 @@ public class Project {
 
     /** "MRE2601ME · Borehole drilling": how a project is named in lists and dropdowns. */
     public String getLabel() {
-        return account.getAccountNo() + " · " + getAssetLabel();
+        return account.getNumberLabel() + " · " + getAssetLabel();
     }
 
     public BigDecimal getMinimumDeposit() {
@@ -120,6 +128,9 @@ public class Project {
 
     /** Loan figures: frozen ones once started, otherwise a projection from today's deposits. */
     public LoanTerms getLoanTerms() {
+        if (loanPrincipal != null && loanInterest != null) {
+            return LoanTerms.recorded(loanPrincipal, loanInterest, repaymentMonths, instalmentAmount);
+        }
         if (loanPrincipal != null) return LoanTerms.fromPrincipal(loanPrincipal, repaymentMonths, getInterestRate());
         if (quotationCost == null) return null;
         return LoanTerms.calculate(quotationCost, totalDeposited, repaymentMonths, getInterestRate());
@@ -210,6 +221,10 @@ public class Project {
     public void setTotalDeposited(BigDecimal totalDeposited) { this.totalDeposited = totalDeposited; }
     public BigDecimal getTotalRepaid() { return totalRepaid; }
     public void setTotalRepaid(BigDecimal totalRepaid) { this.totalRepaid = totalRepaid; }
+    public BigDecimal getInstalmentAmount() { return instalmentAmount; }
+    public void setInstalmentAmount(BigDecimal instalmentAmount) { this.instalmentAmount = instalmentAmount; }
+    public String getRateDecision() { return rateDecision; }
+    public void setRateDecision(String rateDecision) { this.rateDecision = rateDecision; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 }

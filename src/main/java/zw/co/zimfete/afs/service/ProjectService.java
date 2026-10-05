@@ -96,7 +96,7 @@ public class ProjectService {
     /** Funds disbursed to the supplier: the project starts and the loan is fixed. */
     @Transactional
     public Project start(Long id, LocalDate startDate, Integer months, BigDecimal interestPercent,
-                         BigDecimal disbursedAmount, String disbursedTo) {
+                         BigDecimal disbursedAmount, String disbursedTo, String rateDecision) {
         Project p = get(id);
         if (p.getStatus() != ProjectStatus.APPROVED) throw new BusinessException("The committee must approve the project before funds are disbursed.");
         if (months == null || months <= 0) throw new BusinessException("Enter the agreed repayment period in months.");
@@ -105,6 +105,14 @@ public class ProjectService {
                 throw new BusinessException("Interest must be between 0% and 100%.");
             }
             p.setInterestPercent(interestPercent);
+        }
+        // company policy is the default rate; anything else is a committee decision and must say so
+        if (p.getInterestRate().compareTo(props.interestPercent()) != 0) {
+            if (rateDecision == null || rateDecision.isBlank()) {
+                throw new BusinessException("The rate (" + p.getInterestRate() + "%) differs from the company policy of "
+                        + props.interestPercent() + "%. Record the committee decision for this rate.");
+            }
+            p.setRateDecision(rateDecision.trim());
         }
         p.setRepaymentMonths(months);
         p.setProjectStartDate(startDate != null ? startDate : LocalDate.now());
@@ -155,7 +163,6 @@ public class ProjectService {
         if (!p.isLoanStarted()) {
             p.setQuotationCost(req.getQuotationCost());
             p.setRepaymentMonths(req.getRepaymentMonths());
-            if (req.getInterestPercent() != null) p.setInterestPercent(req.getInterestPercent());
         }
         p.setMinDepositPercent(req.getMinDepositPercent() != null ? req.getMinDepositPercent() : BigDecimal.valueOf(50));
         p.setTargetDate(req.getTargetDate());

@@ -1,6 +1,6 @@
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('New project', 'register', ~{::section})}">
 <section>
-  <h1 th:text="'Add a project to ' + ${a.accountNo} + ' — ' + ${a.client.fullName}"></h1>
+  <h1 th:text="'Add a project to ' + ${a.numberLabel} + ' — ' + ${a.client.fullName}"></h1>
   <form method="post" th:action="@{/accounts/{id}/projects/new(id=${a.id})}" th:object="${form}">
     <fieldset><legend>Project / asset</legend>
       <div class="form-grid">

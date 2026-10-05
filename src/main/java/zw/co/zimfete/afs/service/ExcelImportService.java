@@ -76,6 +76,14 @@ public class ExcelImportService {
         try (Workbook wb = WorkbookFactory.create(in)) {
             Sheet rec = wb.getSheet("Receipts");
             Sheet exp = wb.getSheet("Expenditure");
+            Sheet lists = wb.getSheet(ExcelExportService.BRANCH_CELL_SHEET);
+            if (lists != null && lists.getRow(1) != null) {
+                String code = text(lists.getRow(1), ExcelExportService.BRANCH_CELL_COL);
+                if (code != null && !code.equalsIgnoreCase(branch.getCode())) {
+                    throw new BusinessException("This return is " + code + "'s file, but you chose " + branch.getName()
+                            + ". Choose the right branch and upload again.");
+                }
+            }
             if (rec == null && exp == null) throw new BusinessException("No 'Receipts' or 'Expenditure' sheet found. Use the district return template.");
             if (rec != null) {
                 Map<String, Integer> cols = columns(rec);
@@ -149,6 +157,7 @@ public class ExcelImportService {
             reg.setGender(text(row, c.get("gender")));
             reg.setVillage(text(row, c.get("village")));
             reg.setWard(text(row, c.get("ward")));
+            reg.setDistrict(text(row, c.get("district / location")));
             reg.setCategory(category != null ? category : MemberCategory.NOT_VETERAN);
             reg.setDateRegistered(date);
             reg.setCapturedBy(clerk);

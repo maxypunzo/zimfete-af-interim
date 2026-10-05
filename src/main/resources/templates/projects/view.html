@@ -1,7 +1,7 @@
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page(${p.assetLabel}, 'register', ~{::section})}">
 <section>
   <h1><span th:text="${p.assetLabel} + ' — ' + ${p.client.fullName}"></span> <span th:replace="~{fragments :: status(${p})}"></span></h1>
-  <p class="sub">Account <a th:href="@{/accounts/{id}(id=${p.account.id})}" th:text="${p.account.accountNo}"></a>
+  <p class="sub">Account <a th:href="@{/accounts/{id}(id=${p.account.id})}" th:text="${p.account.numberLabel}"></a>
     · <a th:href="@{/clients/{id}(id=${p.client.id})}" th:text="${p.client.clientNo}"></a>
     · <span th:text="${p.branch.label}"></span> · <span th:text="${p.client.ward} ?: ''"></span>
     <span class="red" th:if="${!p.account.active}" th:text="' · Account inactive: opening fee $' + ${p.account.openingFeeBalance} + ' due'"></span></p>
@@ -33,9 +33,10 @@
         <h2 style="margin-top:0">Loan</h2>
         <dl class="kv">
           <dt>Principal</dt><dd th:text="'$' + ${#numbers.formatDecimal(p.loanTerms.principal, 1, 'COMMA', 2, 'POINT')}"></dd>
-          <dt th:text="'Interest (' + ${p.interestRate} + '% once)'">Interest</dt><dd th:text="'$' + ${#numbers.formatDecimal(p.loanTerms.interest, 1, 'COMMA', 2, 'POINT')}"></dd>
+          <dt th:text="'Interest (' + ${p.loanTerms.ratePercent} + '% once)'">Interest</dt><dd th:text="'$' + ${#numbers.formatDecimal(p.loanTerms.interest, 1, 'COMMA', 2, 'POINT')}"></dd>
           <dt>Total repayable</dt><dd><strong th:text="'$' + ${#numbers.formatDecimal(p.loanTerms.totalRepayable, 1, 'COMMA', 2, 'POINT')}"></strong></dd>
-          <dt>Period</dt><dd th:text="${p.repaymentMonths} + ' months'"></dd>
+          <dt th:if="${p.rateDecision}">Rate decision</dt><dd th:if="${p.rateDecision}" th:text="${p.rateDecision}"></dd>
+          <dt>Period</dt><dd th:text="${p.repaymentMonths != null ? p.repaymentMonths + ' months' : 'Not recorded'}"></dd>
           <dt>Monthly instalment</dt><dd th:text="'$' + ${#numbers.formatDecimal(p.loanTerms.monthlyInstalment, 1, 'COMMA', 2, 'POINT')}"></dd>
           <dt>Repaid</dt><dd th:text="'$' + ${#numbers.formatDecimal(p.totalRepaid, 1, 'COMMA', 2, 'POINT')}"></dd>
           <dt>Balance</dt><dd><strong th:text="'$' + ${#numbers.formatDecimal(p.loanBalance, 1, 'COMMA', 2, 'POINT')}"></strong></dd>
@@ -84,7 +85,9 @@
             <div><label>Amount paid out ($)</label><input type="number" step="0.01" min="0" name="disbursedAmount" th:value="${p.quotationCost}"></div>
             <div><label>Paid to (supplier)</label><input name="disbursedTo" th:value="${p.supplier}"></div>
             <div><label>Agreed months</label><input type="number" min="1" name="months" th:value="${months}" required></div>
-            <div><label>Interest %</label><input type="number" min="0" max="100" step="0.01" name="rate" th:value="${rate}"></div>
+            <div><label th:text="'Interest % (policy ' + ${defaultInterest} + '%)'">Interest %</label><input type="number" min="0" max="100" step="0.01" name="rate" th:value="${rate}"></div>
+            <div style="grid-column: span 2"><label>Committee decision (required if the rate is not the policy rate)</label>
+              <input name="rateDecision" placeholder="e.g. Committee meeting 12 Oct 2026, minute 4"></div>
           </div>
           <div><button type="submit" class="orange">Disburse &amp; fix loan</button></div>
         </form>

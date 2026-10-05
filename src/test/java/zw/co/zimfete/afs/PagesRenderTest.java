@@ -59,7 +59,7 @@ class PagesRenderTest {
         second.setQuotationCost(new BigDecimal("900"));
         Project p2 = projectService.create(a.getId(), second, "MANUAL");
         projectService.approve(p.getId(), d.minusMonths(2), null);
-        projectService.start(p.getId(), d.minusMonths(2), 6, null, null, "Fence Co");
+        projectService.start(p.getId(), d.minusMonths(2), 6, null, null, "Fence Co", null);
         ReceiptRequest rep = new ReceiptRequest();
         rep.setProjectId(p.getId());
         rep.setType(ReceiptType.LOAN_REPAYMENT);

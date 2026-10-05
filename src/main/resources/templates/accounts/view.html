@@ -1,6 +1,6 @@
-<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page(${a.accountNo}, 'register', ~{::section})}">
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page(${a.numberLabel}, 'register', ~{::section})}">
 <section>
-  <h1 th:text="${a.accountNo} + ' — ' + ${a.client.fullName}"></h1>
+  <h1 th:text="${a.numberLabel} + ' — ' + ${a.client.fullName}"></h1>
   <p class="sub"><a th:href="@{/clients/{id}(id=${a.client.id})}" th:text="${a.client.clientNo}"></a>
     · <span th:text="${a.branch.label}"></span> · <span th:text="${a.client.phone}"></span>
     · <span th:text="${a.client.saccoMember} ? 'SACCO member (' + ${a.client.category.label} + ')' : 'Not a SACCO member'"></span></p>
@@ -13,7 +13,7 @@
 
   <div class="card"><dl class="kv">
     <dt>Status</dt><dd th:text="${a.statusLabel}" th:classappend="${!a.active} ? 'red'"></dd>
-    <dt>Opened</dt><dd th:text="${#temporals.format(a.openedDate, 'dd MMM yyyy')} + ' by ' + (${a.openedBy} ?: '?')"></dd>
+    <dt>Opened</dt><dd th:text="(${a.openedDate} != null ? ${#temporals.format(a.openedDate, 'dd MMM yyyy')} : 'Date not recorded') + ' by ' + (${a.openedBy} ?: 'not recorded')"></dd>
     <dt>Opening fee paid</dt><dd th:text="'$' + ${a.openingFeePaid} + ' of $50' + (${a.activatedDate} != null ? ' (complete ' + ${#temporals.format(a.activatedDate, 'dd MMM yyyy')} + ')' : '')"></dd>
     <dt>Notes</dt><dd style="white-space:pre-line" th:text="${a.notes} ?: '-'"></dd>
   </dl></div>

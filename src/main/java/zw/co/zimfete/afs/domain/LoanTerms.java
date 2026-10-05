@@ -19,6 +19,19 @@ public record LoanTerms(BigDecimal principal, BigDecimal interest, BigDecimal to
         return fromPrincipal(principal, months, ratePercent);
     }
 
+    /**
+     * Loan figures as fixed/recorded (e.g. from the old Repayments sheet): the stored interest is used as is and
+     * the rate shown is the one it works out to.
+     */
+    public static LoanTerms recorded(BigDecimal principal, BigDecimal interest, Integer months, BigDecimal instalment) {
+        BigDecimal total = principal.add(interest);
+        BigDecimal monthly = instalment != null ? instalment
+                : months != null && months > 0 ? total.divide(BigDecimal.valueOf(months), 2, RoundingMode.HALF_UP) : total;
+        BigDecimal rate = principal.signum() == 0 ? BigDecimal.ZERO
+                : interest.multiply(BigDecimal.valueOf(100)).divide(principal, 2, RoundingMode.HALF_UP);
+        return new LoanTerms(principal, interest, total, months, monthly, rate);
+    }
+
     public static LoanTerms fromPrincipal(BigDecimal principal, Integer months, BigDecimal ratePercent) {
         BigDecimal rate = ratePercent != null ? ratePercent : DEFAULT_INTEREST_PERCENT;
         BigDecimal p = principal.setScale(2, RoundingMode.HALF_UP);

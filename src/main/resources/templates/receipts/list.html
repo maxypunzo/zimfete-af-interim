@@ -19,11 +19,11 @@
       <td th:text="${r.branch.name}"></td>
       <td th:text="${r.type.label}"></td>
       <td th:text="${r.payerName}"></td>
-      <td th:text="${r.project != null ? r.project.label : (r.account != null ? r.account.accountNo : '')}"></td>
+      <td th:text="${r.project != null ? r.project.label : (r.account != null ? r.account.numberLabel : '')}"></td>
       <td class="r" th:text="${#numbers.formatDecimal(r.amount, 1, 'COMMA', 2, 'POINT')}"></td>
       <td th:text="${r.paymentMethod}"></td>
       <td th:text="${r.capturedBy}"></td>
-      <td th:text="${r.source}"></td>
+      <td th:text="${r.sourceLabel}"></td>
     </tr>
     <tr class="total"><td colspan="6">Total (excluding reversed)</td><td class="r" th:text="${#numbers.formatDecimal(total, 1, 'COMMA', 2, 'POINT')}"></td><td colspan="3"></td></tr>
     </tbody>

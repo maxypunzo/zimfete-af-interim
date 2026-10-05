@@ -1,0 +1,33 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page('Old register imported', 'import', ~{::section})}">
+<section>
+  <h1>Previous AFM's workbook imported</h1>
+  <p class="sub" th:text="'Balances brought forward as at ' + ${#temporals.format(r.asAt, 'dd MMMM yyyy')} + '. Values are as recorded; blanks are left blank.'"></p>
+  <div class="actions">
+    <a class="btn orange" th:href="@{/import/old-register/report.xlsx}">Download the list to confirm (Excel)</a>
+    <a class="btn alt" th:href="@{/}">Dashboard</a>
+    <a class="btn alt" th:href="@{/register}">Master register</a>
+  </div>
+  <div class="grid g4">
+    <div class="kpi"><div class="n" th:text="${r.clients}"></div><div class="l">Clients</div></div>
+    <div class="kpi"><div class="n" th:text="${r.accounts}"></div><div class="l">Accounts</div></div>
+    <div class="kpi"><div class="n" th:text="${r.projects}"></div><div class="l">Projects</div></div>
+    <div class="kpi"><div class="n" th:text="${r.loans}"></div><div class="l">Loans (as recorded)</div></div>
+    <div class="kpi"><div class="n" th:text="'$' + ${#numbers.formatDecimal(r.feesBroughtForward, 1, 'COMMA', 2, 'POINT')}"></div><div class="l">Opening fees b/f</div></div>
+    <div class="kpi"><div class="n" th:text="'$' + ${#numbers.formatDecimal(r.depositsBroughtForward, 1, 'COMMA', 2, 'POINT')}"></div><div class="l">Deposits b/f</div></div>
+    <div class="kpi"><div class="n" th:text="'$' + ${#numbers.formatDecimal(r.repaymentsBroughtForward, 1, 'COMMA', 2, 'POINT')}"></div><div class="l">Repaid b/f</div></div>
+    <div class="kpi"><div class="n" th:text="${r.cashbookReceipts}"></div><div class="l">Old cash-book receipts</div></div>
+    <div class="kpi warn"><div class="n" th:text="${#lists.size(r.toConfirm)}"></div><div class="l">Items to confirm</div></div>
+  </div>
+  <h2>What was done</h2>
+  <ul><li th:each="l : ${r.log}" th:text="${l}"></li></ul>
+  <h2>To confirm</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Sheet</th><th>Where</th><th>Client / item</th><th>What to confirm</th></tr></thead>
+    <tbody>
+    <tr th:each="i : ${r.toConfirm}">
+      <td th:text="${i.sheet}"></td><td th:text="${i.where}"></td><td th:text="${i.who}"></td><td th:text="${i.message}"></td>
+    </tr>
+    </tbody>
+  </table></div>
+</section>
+</html>

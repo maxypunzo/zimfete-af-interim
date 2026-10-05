@@ -16,7 +16,7 @@
               <option th:each="p : ${clientProjects}" th:value="${p.id}" th:text="${p.label} + ' · ' + ${p.status.label}"></option></select></div>
           <div th:if="${!#lists.isEmpty(clientAccounts)}"><label>Account (for the opening fee)</label>
             <select th:field="*{accountId}"><option value="">- none -</option>
-              <option th:each="a : ${clientAccounts}" th:value="${a.id}" th:text="${a.accountNo} + ' · ' + ${a.statusLabel}"></option></select></div>
+              <option th:each="a : ${clientAccounts}" th:value="${a.id}" th:text="${a.numberLabel} + ' · ' + ${a.statusLabel}"></option></select></div>
         </div>
       </div>
       <div th:if="${client == null}" class="form-grid">

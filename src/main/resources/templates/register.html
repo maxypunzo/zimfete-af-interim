@@ -41,8 +41,8 @@
       <thead><tr><th>Account</th><th>Opened</th><th>Opened by</th><th>Branch</th><th>Client</th><th>Phone</th><th>Ward</th><th>Member?</th><th class="r">Opening fee paid</th><th>Status</th></tr></thead>
       <tbody>
       <tr th:each="a : ${accounts}">
-        <td><a th:href="@{/accounts/{id}(id=${a.id})}" th:text="${a.accountNo}"></a></td>
-        <td th:text="${#temporals.format(a.openedDate, 'dd/MM/yyyy')}"></td>
+        <td><a th:href="@{/accounts/{id}(id=${a.id})}" th:text="${a.numberLabel}"></a></td>
+        <td th:text="${a.openedDate != null ? #temporals.format(a.openedDate, 'dd/MM/yyyy') : ''}"></td>
         <td th:text="${a.openedBy}"></td>
         <td th:text="${a.branch.name}"></td>
         <td th:text="${a.client.fullName}"></td>
@@ -68,7 +68,7 @@
         <td th:text="${r.client.fullName}"></td>
         <td th:text="${r.client.phone}"></td>
         <td th:text="${r.client.ward}"></td>
-        <td><a th:href="@{/accounts/{id}(id=${r.account.id})}" th:text="${r.account.accountNo}"></a></td>
+        <td><a th:href="@{/accounts/{id}(id=${r.account.id})}" th:text="${r.account.numberLabel}"></a></td>
         <td><a th:href="@{/projects/{id}(id=${r.project.id})}" th:text="${r.project.assetLabel}"></a></td>
         <td class="r" th:text="${r.project.quotationCost != null ? #numbers.formatDecimal(r.project.quotationCost, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
         <td class="r" th:text="${#numbers.formatDecimal(r.amount, 1, 'COMMA', 2, 'POINT')}"></td>
@@ -120,9 +120,9 @@
         <td th:text="${a.branch.name}"></td>
         <td th:text="${a.client.fullName}"></td>
         <td th:text="${a.client.phone}"></td>
-        <td th:text="${#temporals.format(a.projectStartDate, 'dd/MM/yyyy')}"></td>
+        <td th:text="${a.projectStartDate != null ? #temporals.format(a.projectStartDate, 'dd/MM/yyyy') : 'not recorded'}"></td>
         <td class="r" th:text="${#numbers.formatDecimal(a.loanTerms.totalRepayable, 1, 'COMMA', 2, 'POINT')}"></td>
-        <td class="r" th:text="${a.interestRate} + '%'"></td>
+        <td class="r" th:text="${a.loanTerms.ratePercent} + '%'"></td>
         <td class="r" th:text="${a.repaymentMonths}"></td>
         <td class="r" th:text="${#numbers.formatDecimal(a.loanTerms.monthlyInstalment, 1, 'COMMA', 2, 'POINT')}"></td>
         <td class="r" th:text="${#numbers.formatDecimal(a.totalRepaid, 1, 'COMMA', 2, 'POINT')}"></td>

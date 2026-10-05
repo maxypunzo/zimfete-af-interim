@@ -10,7 +10,7 @@
 
 <select th:fragment="branchFilter(selected, allLabel)" name="branchId">
   <option value="" th:text="${allLabel}">All branches</option>
-  <option th:each="b : ${branches}" th:value="${b.id}" th:text="${b.label}" th:selected="${b.id == selected}"></option>
+  <option th:each="b : ${allBranches}" th:value="${b.id}" th:text="${b.label}" th:selected="${b.id == selected}"></option>
 </select>
 </body>
 </html>

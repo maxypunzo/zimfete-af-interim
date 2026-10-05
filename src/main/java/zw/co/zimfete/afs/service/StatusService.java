@@ -29,7 +29,7 @@ public class StatusService {
         c.setJoiningFeePaid(receipts.countJoiningFees(c.getId()) > 0);
         long months = receipts.sumSubscriptionMonths(c.getId());
         LocalDate start = c.getMemberSince() != null ? c.getMemberSince() : c.getDateRegistered();
-        c.setSubsPaidUntil(months > 0 ? start.withDayOfMonth(1).plusMonths(months - 1) : null);
+        c.setSubsPaidUntil(months > 0 && start != null ? start.withDayOfMonth(1).plusMonths(months - 1) : null);
         clients.save(c);
     }
 

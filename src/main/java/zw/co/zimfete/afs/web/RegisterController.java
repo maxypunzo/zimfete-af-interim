@@ -54,8 +54,9 @@ public class RegisterController {
 
         switch (tab) {
             case "deposits" -> {
+                // old cash-book lines are not linked to projects; their amounts are in the balances brought forward
                 List<Receipt> list = receipts.find(f, t, branchId, ReceiptType.ASSET_DEPOSIT).stream()
-                        .filter(r -> !r.isReversed())
+                        .filter(r -> !r.isReversed() && r.getProject() != null)
                         .filter(r -> assetType == null || r.getProject().getAssetType() == assetType).toList();
                 model.addAttribute("deposits", list);
                 model.addAttribute("total", ReportService.sum(list.stream().map(Receipt::getAmount)));
@@ -80,7 +81,8 @@ public class RegisterController {
             default -> {
                 List<AssetAccount> list = accounts.findAllByOrderByOpenedDateDescIdDesc().stream()
                         .filter(a -> branchId == null || a.getBranch().getId().equals(branchId))
-                        .filter(a -> !a.getOpenedDate().isBefore(f) && !a.getOpenedDate().isAfter(t))
+                        .filter(a -> a.getOpenedDate() == null ? from == null && to == null
+                                : !a.getOpenedDate().isBefore(f) && !a.getOpenedDate().isAfter(t))
                         .filter(a -> !"inactive".equals(view) || !a.isActive()).toList();
                 model.addAttribute("accounts", list);
                 model.addAttribute("byClerk", reports.accountsOpenedBy(list));

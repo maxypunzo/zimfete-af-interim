@@ -16,7 +16,8 @@ public class AssetAccount {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    /** Unique when present; blank only for old-register records still to be confirmed. */
+    @Column(unique = true)
     private String accountNo;
 
     @ManyToOne(optional = false)
@@ -25,7 +26,7 @@ public class AssetAccount {
     @ManyToOne(optional = false)
     private Branch branch;
 
-    @Column(nullable = false)
+    /** Blank only for old-register records without a date. */
     private LocalDate openedDate;
 
     /** Clerk who opened the account. */
@@ -40,6 +41,10 @@ public class AssetAccount {
 
     @Column(length = 1000)
     private String notes;
+
+    public String getNumberLabel() {
+        return accountNo != null ? accountNo : "(no account no)";
+    }
 
     public boolean isActive() {
         return !closed && openingFeePaid.compareTo(OPENING_FEE) >= 0;

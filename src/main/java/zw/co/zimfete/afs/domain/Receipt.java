@@ -7,8 +7,23 @@ import java.time.LocalDateTime;
 
 /** Every dollar received. Daily income sheets, monthly I&E and deposit registers are all built from this table. */
 @Entity
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"branch_id", "receiptNo"}))
+@Table(indexes = @Index(columnList = "branch_id, receiptNo"))
 public class Receipt {
+    /** Captured in this system. */
+    public static final String SOURCE_MANUAL = "MANUAL";
+    /** From a district return. */
+    public static final String SOURCE_IMPORT = "IMPORT";
+    /**
+     * Balance brought forward from the previous AFM's register: counts towards account and project balances
+     * but is not cash received in this system, so it is left out of cash reports.
+     */
+    public static final String SOURCE_OPENING_BALANCE = "OPENING_BALANCE";
+    /**
+     * A line from the previous AFM's daily inflow sheets: counts in cash reports for those days but is not
+     * linked to a client, so it does not touch balances (those come in as opening balances).
+     */
+    public static final String SOURCE_OLD_CASHBOOK = "OLD_CASHBOOK";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -47,12 +62,25 @@ public class Receipt {
     private String capturedBy;
     private String description;
 
-    /** MANUAL (captured here) or IMPORT (from a district return). */
-    private String source = "MANUAL";
+    /** See the SOURCE_ constants. Receipt numbers are unique per branch for new receipts (checked on capture). */
+    private String source = SOURCE_MANUAL;
 
     private boolean reversed;
 
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    public boolean isCash() {
+        return !SOURCE_OPENING_BALANCE.equals(source);
+    }
+
+    public String getSourceLabel() {
+        return switch (source == null ? SOURCE_MANUAL : source) {
+            case SOURCE_IMPORT -> "District return";
+            case SOURCE_OPENING_BALANCE -> "B/F old register";
+            case SOURCE_OLD_CASHBOOK -> "Old cash book";
+            default -> "Captured";
+        };
+    }
 
     public String getPayerName() {
         return client != null ? client.getFullName() : description;

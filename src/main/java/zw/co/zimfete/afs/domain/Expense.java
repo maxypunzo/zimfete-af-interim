@@ -35,6 +35,12 @@ public class Expense {
     private String capturedBy;
     private String source = "MANUAL";
 
+    /**
+     * Funds paid out to a project (old cash book "Loan (projects)"): reported as outflow with disbursements,
+     * not as operating expenditure.
+     */
+    private Boolean projectDisbursement = Boolean.FALSE;
+
     public Long getId() { return id; }
     public LocalDate getExpenseDate() { return expenseDate; }
     public void setExpenseDate(LocalDate expenseDate) { this.expenseDate = expenseDate; }
@@ -52,6 +58,8 @@ public class Expense {
     public void setAmount(BigDecimal amount) { this.amount = amount; }
     public String getCapturedBy() { return capturedBy; }
     public void setCapturedBy(String capturedBy) { this.capturedBy = capturedBy; }
+    public boolean isProjectDisbursement() { return Boolean.TRUE.equals(projectDisbursement); }
+    public void setProjectDisbursement(boolean projectDisbursement) { this.projectDisbursement = projectDisbursement; }
     public String getSource() { return source; }
     public void setSource(String source) { this.source = source; }
 }

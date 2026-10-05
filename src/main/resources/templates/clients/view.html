@@ -17,7 +17,7 @@
       <dt>Village / ward</dt><dd th:text="${(client.village ?: '-') + ' / ' + (client.ward ?: '-')}"></dd>
       <dt>District</dt><dd th:text="${client.district}"></dd>
       <dt>Branch</dt><dd th:text="${client.branch.label}"></dd>
-      <dt>Registered</dt><dd th:text="${#temporals.format(client.dateRegistered, 'dd MMM yyyy')}"></dd>
+      <dt>Registered</dt><dd th:text="${client.dateRegistered != null ? #temporals.format(client.dateRegistered, 'dd MMM yyyy') : '(not recorded)'}"></dd>
       <dt>Next of kin</dt><dd th:text="${client.nextOfKin} ?: '-'"></dd>
       <dt>Notes</dt><dd th:text="${client.notes} ?: '-'"></dd>
     </dl></div>
@@ -42,8 +42,8 @@
     <thead><tr><th>Account</th><th>Opened</th><th>Opened by</th><th class="r">Opening fee paid</th><th>Status</th><th></th></tr></thead>
     <tbody>
     <tr th:each="a : ${accounts}">
-      <td><a th:href="@{/accounts/{id}(id=${a.id})}" th:text="${a.accountNo}"></a></td>
-      <td th:text="${#temporals.format(a.openedDate, 'dd/MM/yyyy')}"></td>
+      <td><a th:href="@{/accounts/{id}(id=${a.id})}" th:text="${a.numberLabel}"></a></td>
+      <td th:text="${a.openedDate != null ? #temporals.format(a.openedDate, 'dd/MM/yyyy') : ''}"></td>
       <td th:text="${a.openedBy}"></td>
       <td class="r" th:text="${#numbers.formatDecimal(a.openingFeePaid, 1, 'COMMA', 2, 'POINT')}"></td>
       <td th:text="${a.statusLabel}" th:classappend="${!a.active} ? 'red'"></td>
@@ -58,7 +58,7 @@
     <thead><tr><th>Account</th><th>Asset</th><th class="r">Cost</th><th class="r">Deposited</th><th>Progress</th><th>Status</th><th class="r">Loan balance</th><th></th></tr></thead>
     <tbody>
     <tr th:each="p : ${projects}">
-      <td th:text="${p.account.accountNo}"></td>
+      <td th:text="${p.account.numberLabel}"></td>
       <td><a th:href="@{/projects/{id}(id=${p.id})}" th:text="${p.assetLabel}"></a></td>
       <td class="r" th:text="${p.quotationCost != null ? #numbers.formatDecimal(p.quotationCost, 1, 'COMMA', 2, 'POINT') : '-'}"></td>
       <td class="r" th:text="${#numbers.formatDecimal(p.totalDeposited, 1, 'COMMA', 2, 'POINT')}"></td>
@@ -79,7 +79,7 @@
       <td th:text="${#temporals.format(r.receiptDate, 'dd/MM/yyyy')}"></td>
       <td><a th:href="@{/receipts/{id}(id=${r.id})}" th:text="${r.receiptNo}"></a></td>
       <td th:text="${r.type.label} + (${r.months} != null ? ' (' + ${r.months} + ' mo)' : '')"></td>
-      <td th:text="${r.project != null ? r.project.label : (r.account != null ? r.account.accountNo : '')}"></td>
+      <td th:text="${r.project != null ? r.project.label : (r.account != null ? r.account.numberLabel : '')}"></td>
       <td class="r" th:text="${#numbers.formatDecimal(r.amount, 1, 'COMMA', 2, 'POINT')}"></td>
       <td th:text="${r.capturedBy}"></td>
     </tr>

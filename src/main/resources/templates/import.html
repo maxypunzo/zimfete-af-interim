@@ -28,6 +28,19 @@
     </div>
   </div>
 
+  <div class="card" th:if="${!oldImported}">
+    <h2 style="margin-top:0">One-off: bring in the previous AFM's workbook</h2>
+    <p class="muted">Imports the client database, incomplete records, deposits, repayments, project approvals, daily inflow
+      sheets and August outflows exactly as recorded. Nothing is corrected or guessed: where sheets disagree the field is left
+      blank and listed to confirm. Can only be run once.</p>
+    <form method="post" th:action="@{/import/old-register}" enctype="multipart/form-data" class="inline">
+      <div><label>Old workbook (.xlsx)</label><input type="file" name="file" accept=".xlsx" required></div>
+      <div><label>Balances as at</label><input type="date" name="asAt" th:value="${today}" required></div>
+      <button type="submit" class="orange" onclick="return confirm('Import the old workbook now? This can only be done once.')">Import old register</button>
+    </form>
+  </div>
+  <p class="muted" th:if="${oldImported}">The previous AFM's workbook has been imported.</p>
+
   <th:block th:if="${result != null}">
     <h2 th:text="'Result for ' + ${fileName}"></h2>
     <div class="grid g4">
